@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Mi proyecto
-=======
 # GPS50GB-MARKETVERSITARIO
 Marketvesitario es una plataforma tipo marketplace universitario orientada a la compra, venta, intercambio de productos y oferta de tutorías académicas entre estudiantes.
 
@@ -26,4 +23,4 @@ Equipo de desarrollo Codeamos
 - Maldonado Ceron Cristian David
 - Ortiz Duque Jose Fabian
 - Rivas Chica Keiner Alejandro 
->>>>>>> 1a98e6786ea3c4c0374f1033ad2ef6658faf0cc7
+
