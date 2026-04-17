@@ -6,8 +6,6 @@
 
 -- ----------------------------------------------------------------
 -- 1. PROFILES
--- Extiende la tabla de autenticación de Supabase (auth.users).
--- Email y contraseña son gestionados exclusivamente por Supabase Auth.
 -- ----------------------------------------------------------------
 CREATE TABLE profiles (
     id                  UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -97,7 +95,7 @@ CREATE TABLE solicitudes (
 );
 
 -- ----------------------------------------------------------------
--- 7A. VALORACION_PUBLICACION (Opción C: tablas separadas)
+-- 7A. VALORACION_PUBLICACION
 -- Calificación de un producto/publicación por parte de un usuario.
 -- ----------------------------------------------------------------
 CREATE TABLE valoracion_publicacion (
@@ -111,7 +109,7 @@ CREATE TABLE valoracion_publicacion (
 );
 
 -- ----------------------------------------------------------------
--- 7B. VALORACION_TUTORIA (Opción C: tablas separadas)
+-- 7B. VALORACION_TUTORIA
 -- Calificación de una tutoría recibida por parte de un estudiante.
 -- ----------------------------------------------------------------
 CREATE TABLE valoracion_tutoria (
