@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = body
+    const email = body.email?.trim().toLowerCase()
+    const password = body.password
 
+    // ── 1. Validación de campos obligatorios ─────────────────────────
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email y contraseña son requeridos.' },
@@ -13,9 +15,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Email válido (Evita llamar a Supabase si el email está mal escrito)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'El formato del correo electrónico es inválido.' }, { status: 400 })
+    }
+
     const supabase = await createClient()
 
-    // ── 1. Autenticar con Supabase ──────────────────────────────────
+    // ── 2. Autenticar con Supabase ──────────────────────────────────
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
