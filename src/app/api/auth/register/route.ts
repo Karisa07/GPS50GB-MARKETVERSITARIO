@@ -6,42 +6,71 @@ export async function POST(request: NextRequest) {
   try {
     const body: RegisterPayload = await request.json()
 
-    // ── 1. Validación básica de campos obligatorios ──────────────────
-    const requiredFields: (keyof RegisterPayload)[] = [
-      'email',
-      'password',
-      'nombres',
-      'apellidos',
-      'tipo_documento',
-      'documento_identidad',
-    ]
+    // ── 1. Limpieza y formato inicial ────────────────────────────────
+    const email = body.email?.trim().toLowerCase()
+    const password = body.password
+    const nombres = body.nombres?.trim()
+    const apellidos = body.apellidos?.trim()
+    const tipo_documento = body.tipo_documento?.trim().toUpperCase()
+    const documento_identidad = body.documento_identidad?.trim()
+    const genero = body.genero?.trim()
+    const telefono = body.telefono?.trim()
+    const programa_academico = body.programa_academico?.trim()
+    const rol = body.rol
 
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `El campo '${field}' es obligatorio.` },
-          { status: 400 }
-        )
-      }
-    }
-
-    if (body.password.length < 8) {
+    // ── 2. Validación de campos obligatorios ─────────────────────────
+    if (!email || !password || !nombres || !apellidos || !tipo_documento || !documento_identidad) {
       return NextResponse.json(
-        { error: 'La contraseña debe tener al menos 8 caracteres.' },
+        { error: 'Faltan campos obligatorios. Revisa el formulario.' },
         { status: 400 }
       )
     }
 
-    // ── 2. Crear usuario en auth.users (Supabase Auth) ───────────────
+    // ── 3. Validaciones específicas (Reglas de negocio) ──────────────
+
+    // Email válido
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'El formato del correo electrónico es inválido.' }, { status: 400 })
+    }
+
+    // Contraseña fuerte (Mín 8 chars, 1 mayúscula, 1 número)
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/
+    if (!passwordRegex.test(password)) {
+      return NextResponse.json(
+        { error: 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula y un número.' },
+        { status: 400 }
+      )
+    }
+
+    // Tipo de documento permitido
+    const tiposPermitidos = ['CC', 'TI', 'CE', 'PASAPORTE', 'NIT']
+    if (!tiposPermitidos.includes(tipo_documento)) {
+      return NextResponse.json(
+        { error: `Tipo de documento inválido. Permitidos: ${tiposPermitidos.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Documento identidad (Solo números y de 5 a 15 de longitud)
+    const docRegex = /^\d{5,15}$/
+    if (!docRegex.test(documento_identidad)) {
+      return NextResponse.json(
+        { error: 'El documento de identidad debe contener solo entre 5 y 15 números.' },
+        { status: 400 }
+      )
+    }
+
+    // ── 4. Crear usuario en auth.users (Supabase Auth) ───────────────
     const supabase = await createClient()
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: body.email,
-      password: body.password,
+      email: email,
+      password: password,
       options: {
         data: {
-          nombres: body.nombres,
-          apellidos: body.apellidos,
+          nombres: nombres,
+          apellidos: apellidos,
         },
       },
     })
@@ -60,19 +89,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── 3. Insertar perfil en nuestra tabla profiles ─────────────────
+    // ── 5. Insertar perfil en nuestra tabla profiles ─────────────────
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .insert({
         id: authData.user.id,
-        tipo_documento: body.tipo_documento,
-        documento_identidad: body.documento_identidad,
-        nombres: body.nombres,
-        apellidos: body.apellidos,
-        genero: body.genero ?? null,
-        telefono: body.telefono ?? null,
-        programa_academico: body.programa_academico ?? null,
-        rol: body.rol ?? 'estudiante',
+        tipo_documento: tipo_documento,
+        documento_identidad: documento_identidad,
+        nombres: nombres,
+        apellidos: apellidos,
+        genero: genero ?? null,
+        telefono: telefono ?? null,
+        programa_academico: programa_academico ?? null,
+        rol: rol ?? 'estudiante',
       })
       .select()
       .single()
