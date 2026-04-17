@@ -48,3 +48,29 @@ Content-Type: application/json
 }
 
 ###
+
+# ================================================================
+# AUTH - LOGIN
+# ================================================================
+
+### Login exitoso (usando estudiante de la bd local)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "estudiante@marketvesitario.com",
+  "password": "Test1234!"
+}
+
+###
+
+### Login fallido (contraseña incorrecta)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "estudiante@marketvesitario.com",
+  "password": "mal"
+}
+
+###
