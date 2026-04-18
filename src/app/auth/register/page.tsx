@@ -8,7 +8,17 @@ import { Particles } from "@/components/ui/particles";
 export default function AuthSwitch() {
   // Comienza en true porque esta es la ruta de registro (/auth/register)
   const [isSignUp, setIsSignUp] = useState(true);
-  const [docType, setDocType] = useState("CC");
+  const [docType, setDocType] = useState("");
+
+  useEffect(() => {
+    // Interceptar parámetros por URL para cargar estado log in
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("mode") === "login") {
+        setIsSignUp(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const container = document.querySelector(".auth-container");
@@ -300,7 +310,7 @@ export default function AuthSwitch() {
           top: -10%;
           right: 48%;
           transform: translateY(-50%);
-          background: linear-gradient(-45deg, #378ADD 0%, #534AB7 100%);
+          background: linear-gradient(-45deg, #291D73 0%, #534AB7 100%);
           transition: 1.8s ease-in-out;
           border-radius: 50%;
           z-index: 6;
@@ -472,6 +482,11 @@ export default function AuthSwitch() {
               <div className="input-field">
                 <i><Lock size={20} /></i>
                 <input type="password" placeholder="Contraseña" />
+              </div>
+              <div style={{ width: '100%', maxWidth: '380px', textAlign: 'center', marginTop: '10px' }}>
+                <Link href="/auth/recover" style={{ fontSize: '0.85rem', color: '#534AB7', fontWeight: 600, textDecoration: 'none' }}>
+                  ¿Olvidaste tu contraseña?
+                </Link>
               </div>
               <button type="button" className="btn solid">Entrar</button>
               
