@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Mail, ArrowLeft } from "lucide-react";
 import { Particles } from "@/components/ui/particles";
+import { createClient } from "@/lib/supabase/client";
 
 export default function RecoverPassword() {
   const [email, setEmail] = useState("");
@@ -15,13 +16,14 @@ export default function RecoverPassword() {
     if (!email) return;
 
     setLoading(true);
-    // TODO: Connect to Supabase supabase.auth.resetPasswordForEmail()
-    
-    // Simulate delay for UI testing
-    setTimeout(() => {
-      setSuccess(true);
-      setLoading(false);
-    }, 1500);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    });
+
+    // Se muestra estado de éxito siempre para prevenir fuga de enumeración de emails
+    setSuccess(true);
+    setLoading(false);
   };
 
   return (

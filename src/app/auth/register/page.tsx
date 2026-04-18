@@ -4,11 +4,26 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { User, Mail, Lock, CreditCard } from "lucide-react";
 import { Particles } from "@/components/ui/particles";
+import { createClient } from "@/lib/supabase/client";
 
 export default function AuthSwitch() {
-  // Comienza en true porque esta es la ruta de registro (/auth/register)
+  // Render modes
   const [isSignUp, setIsSignUp] = useState(true);
+
+  // Formularios de Login
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
+
+  // Formularios de Registro
+  const [nombreCompleto, setNombreCompleto] = useState("");
   const [docType, setDocType] = useState("");
+  const [docNumber, setDocNumber] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState("");
 
   useEffect(() => {
     // Interceptar parámetros por URL para cargar estado log in
@@ -26,6 +41,62 @@ export default function AuthSwitch() {
     if (isSignUp) container.classList.add("sign-up-mode");
     else container.classList.remove("sign-up-mode");
   }, [isSignUp]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al iniciar sesión");
+      
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      setLoginError(err.message);
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRegError("");
+    setRegLoading(true);
+    try {
+      const parts = nombreCompleto.trim().split(" ");
+      const nombres = parts[0] || "";
+      const apellidos = parts.slice(1).join(" ") || "N/A"; // Backend requiere apellidos
+
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: regEmail,
+          password: regPassword,
+          nombres,
+          apellidos,
+          tipo_documento: docType,
+          documento_identidad: docNumber
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al registrarse");
+      
+      setIsSignUp(false);
+      setLoginEmail(regEmail); // Pre-fill para el login
+      alert("Registro exitoso. Ya puedes iniciar sesión.");
+    } catch (err: any) {
+      setRegError(err.message);
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
 
   return (
     <>
@@ -471,38 +542,58 @@ export default function AuthSwitch() {
           <div className="signin-signup">
             
             {/* ── FORMULARIO DE LOG IN ── */}
-            <form className="sign-in-form">
+            <form className="sign-in-form" onSubmit={handleLogin}>
               <h2 className="title" style={{ marginBottom: '25px', marginTop: '40px' }}>
                 Bienvenido a <span style={{ color: '#534AB7' }}>MarketVersitario</span>
               </h2>
+
+              {loginError && <p className="error-text">{loginError}</p>}
+
               <div className="input-field">
                 <i><Mail size={20} /></i>
-                <input type="email" placeholder="Correo electrónico" />
+                <input 
+                  type="email" 
+                  placeholder="Correo electrónico" 
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                />
               </div>
               <div className="input-field">
                 <i><Lock size={20} /></i>
-                <input type="password" placeholder="Contraseña" />
+                <input 
+                  type="password" 
+                  placeholder="Contraseña" 
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                />
               </div>
               <div style={{ width: '100%', maxWidth: '380px', textAlign: 'center', marginTop: '10px' }}>
                 <Link href="/auth/recover" style={{ fontSize: '0.85rem', color: '#534AB7', fontWeight: 600, textDecoration: 'none' }}>
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
-              <button type="button" className="btn solid">Entrar</button>
-              
-              <p className="social-text">O continúa usando</p>
-              <div className="social-media">
-                <SocialIcons />
-              </div>
+              <button type="submit" className="btn solid" disabled={loginLoading}>
+                {loginLoading ? "Entrando..." : "Entrar"}
+              </button>
             </form>
 
             {/* ── FORMULARIO DE REGISTRO ── */}
-            <form className="sign-up-form">
+            <form className="sign-up-form" onSubmit={handleRegister}>
               <h2 className="title" style={{ marginBottom: '25px', marginTop: '40px' }}>Crear cuenta</h2>
               
+              {regError && <p className="error-text">{regError}</p>}
+
               <div className="input-field">
                 <i><User size={20} /></i>
-                <input type="text" placeholder="Nombre completo" />
+                <input 
+                  type="text" 
+                  placeholder="Nombre completo" 
+                  value={nombreCompleto}
+                  onChange={(e) => setNombreCompleto(e.target.value)}
+                  required
+                />
               </div>
 
               <div className="input-field">
@@ -511,35 +602,53 @@ export default function AuthSwitch() {
                   value={docType} 
                   onChange={(e) => setDocType(e.target.value)}
                   className={docType === "" ? "placeholder-select" : ""}
+                  required
                 >
                   <option value="" disabled>Tipo de documento</option>
                   <option value="CC">Cédula de Ciudadanía (CC)</option>
                   <option value="TI">Tarjeta de Identidad (TI)</option>
                   <option value="CE">Cédula de Extranjería (CE)</option>
+                  <option value="PASAPORTE">Pasaporte</option>
+                  <option value="NIT">NIT</option>
                 </select>
               </div>
 
               <div className="input-field">
                 <i><CreditCard size={20} /></i>
-                <input type="text" placeholder="Número de documento" />
+                <input 
+                  type="text" 
+                  placeholder="Número de documento" 
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value)}
+                  required
+                />
               </div>
 
               <div className="input-field">
                 <i><Mail size={20} /></i>
-                <input type="email" placeholder="Correo electrónico" />
+                <input 
+                  type="email" 
+                  placeholder="Correo electrónico" 
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  required
+                />
               </div>
               
               <div className="input-field">
                 <i><Lock size={20} /></i>
-                <input type="password" placeholder="Contraseña" />
+                <input 
+                  type="password" 
+                  placeholder="Contraseña" 
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
+                  required
+                />
               </div>
 
-              <button type="button" className="btn" style={{ margin: '10px 0' }}>Registrarse</button>
-              
-              <p className="social-text">O regístrate con</p>
-              <div className="social-media">
-                <SocialIcons />
-              </div>
+              <button type="submit" className="btn" style={{ margin: '10px 0' }} disabled={regLoading}>
+                {regLoading ? "Registrando..." : "Registrarse"}
+              </button>
             </form>
 
           </div>
@@ -571,18 +680,4 @@ export default function AuthSwitch() {
   );
 }
 
-// Iconos abstractos genéricos de Google (con hover iluminado)
-function SocialIcons() {
-  return (
-    <>
-      <a href="#" className="social-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-        </svg>
-      </a>
-    </>
-  );
-}
+
