@@ -74,3 +74,20 @@ Content-Type: application/json
 }
 
 ###
+
+# ================================================================
+# PUBLICACIONES
+# ================================================================
+
+### Crear una publicación (requiere estar autenticado - enviar las cookies de sesión si se prueba desde aquí, o probar desde la app)
+POST {{baseUrl}}/api/publicaciones
+Content-Type: application/json
+
+{
+  "titulo": "Calculadora Científica Casio",
+  "descripcion": "Calculadora en perfecto estado, poco uso.",
+  "precio": 45000,
+  "ubicacion": "Bloque D"
+}
+
+###
