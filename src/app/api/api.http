@@ -91,3 +91,15 @@ Content-Type: application/json
 }
 
 ###
+
+### Editar una publicación (requiere estar autenticado como el dueño de la publicación)
+PUT {{baseUrl}}/api/publicaciones/1
+Content-Type: application/json
+
+{
+  "titulo": "Calculadora Científica Casio (Editada)",
+  "precio": 42000,
+  "estado": "pausado"
+}
+
+###
