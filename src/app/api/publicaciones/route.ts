@@ -66,3 +66,47 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function GET(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    
+    // Filtros opcionales
+    const estado = searchParams.get('estado') || 'activo';
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    // Consultar la tabla publicacion haciendo JOIN con profiles para traer los datos del vendedor
+    let query = supabase
+      .from('publicacion')
+      .select(`
+        *,
+        perfil:profiles(nombres, apellidos, programa_academico, telefono)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (estado !== 'todos') {
+      query = query.eq('estado', estado);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error listando publicaciones:', error);
+      return NextResponse.json(
+        { error: 'Error al obtener las publicaciones.', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ data }, { status: 200 });
+
+  } catch (error: any) {
+    console.error('Excepción listando publicaciones:', error);
+    return NextResponse.json(
+      { error: 'Error interno del servidor.', details: error.message },
+      { status: 500 }
+    );
+  }
+}

@@ -109,3 +109,15 @@ DELETE {{baseUrl}}/api/publicaciones/1
 Content-Type: application/json
 
 ###
+
+### Listar todas las publicaciones activas (No requiere autenticación)
+GET {{baseUrl}}/api/publicaciones
+Content-Type: application/json
+
+###
+
+### Listar publicaciones con filtro (ejemplo: todas)
+GET {{baseUrl}}/api/publicaciones?estado=todos&limit=10
+Content-Type: application/json
+
+###
