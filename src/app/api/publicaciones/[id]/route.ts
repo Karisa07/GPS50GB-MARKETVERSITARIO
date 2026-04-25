@@ -108,3 +108,78 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient();
+
+    // 1. Verificar sesión del usuario
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'No autorizado. Debes iniciar sesión para eliminar una publicación.' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+    if (!id) {
+      return NextResponse.json(
+        { error: 'El ID de la publicación es requerido.' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Verificar que la publicación existe y pertenece al usuario actual
+    const { data: existingPost, error: fetchError } = await supabase
+      .from('publicacion')
+      .select('id_usuario')
+      .eq('id_publicacion', id)
+      .single();
+
+    if (fetchError || !existingPost) {
+      return NextResponse.json(
+        { error: 'Publicación no encontrada.' },
+        { status: 404 }
+      );
+    }
+
+    if (existingPost.id_usuario !== user.id) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para eliminar esta publicación.' },
+        { status: 403 }
+      );
+    }
+
+    // 3. Eliminar en la base de datos
+    const { error } = await supabase
+      .from('publicacion')
+      .delete()
+      .eq('id_publicacion', id);
+
+    if (error) {
+      console.error('Error eliminando publicación:', error);
+      return NextResponse.json(
+        { error: 'Error al eliminar la publicación.', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    // 4. Retornar éxito
+    return NextResponse.json(
+      { message: 'Publicación eliminada exitosamente' },
+      { status: 200 }
+    );
+
+  } catch (error: any) {
+    console.error('Excepción eliminando publicación:', error);
+    return NextResponse.json(
+      { error: 'Error interno del servidor.', details: error.message },
+      { status: 500 }
+    );
+  }
+}

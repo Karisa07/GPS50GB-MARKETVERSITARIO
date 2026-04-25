@@ -103,3 +103,9 @@ Content-Type: application/json
 }
 
 ###
+
+### Eliminar una publicación (requiere estar autenticado como el dueño de la publicación)
+DELETE {{baseUrl}}/api/publicaciones/1
+Content-Type: application/json
+
+###
