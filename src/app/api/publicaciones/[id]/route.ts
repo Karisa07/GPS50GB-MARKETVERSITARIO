@@ -183,3 +183,54 @@ export async function DELETE(
     );
   }
 }
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient();
+    const { id } = params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'El ID de la publicación es requerido.' },
+        { status: 400 }
+      );
+    }
+
+    // Consultar la publicación específica haciendo JOIN con profiles
+    const { data, error } = await supabase
+      .from('publicacion')
+      .select(`
+        *,
+        perfil:profiles(nombres, apellidos, programa_academico, telefono)
+      `)
+      .eq('id_publicacion', id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // PGRST116 significa que no se encontró ninguna fila con ese ID
+        return NextResponse.json(
+          { error: 'Publicación no encontrada.' },
+          { status: 404 }
+        );
+      }
+      console.error('Error obteniendo el detalle de la publicación:', error);
+      return NextResponse.json(
+        { error: 'Error al obtener el detalle de la publicación.', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ data }, { status: 200 });
+
+  } catch (error: any) {
+    console.error('Excepción obteniendo detalle de publicación:', error);
+    return NextResponse.json(
+      { error: 'Error interno del servidor.', details: error.message },
+      { status: 500 }
+    );
+  }
+}
