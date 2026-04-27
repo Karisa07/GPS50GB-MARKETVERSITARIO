@@ -6,7 +6,7 @@ import {
   Search, Bell, LayoutDashboard, Package, 
   Settings, LogOut, ChevronDown, Plus, 
   Pencil, Trash2, ExternalLink, Filter,
-  Sparkles, Check, Heart, Loader2
+  Sparkles, Check, Heart, Loader2, X, AlertTriangle, Save
 } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -23,6 +23,16 @@ export default function GestionPublicaciones() {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userAuth, setUserAuth] = useState<any>(null);
+
+  // Estado modal eliminar
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Estado modal editar
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ titulo: '', precio: '', ubicacion: '', descripcion: '', estado: '' });
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   // Carga inicial
   React.useEffect(() => {
@@ -58,6 +68,67 @@ export default function GestionPublicaciones() {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/auth/login';
+  };
+
+  const openEdit = (pub: any) => {
+    setEditTarget(pub);
+    setEditForm({
+      titulo: pub.titulo || '',
+      precio: pub.precio ? String(pub.precio) : '',
+      ubicacion: pub.ubicacion || '',
+      descripcion: pub.descripcion || '',
+      estado: pub.estado || 'activo',
+    });
+    setEditError('');
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    setSaving(true);
+    setEditError('');
+    try {
+      const res = await fetch(`/api/publicaciones/${editTarget.id_publicacion}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: editForm.titulo,
+          precio: editForm.precio.replace(/\./g, ''),
+          ubicacion: editForm.ubicacion,
+          descripcion: editForm.descripcion,
+          estado: editForm.estado,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Error al guardar');
+      // Actualizar lista local
+      setProductos(prev => prev.map(p =>
+        p.id_publicacion === editTarget.id_publicacion ? { ...p, ...json.data } : p
+      ));
+      setEditTarget(null);
+    } catch (err: any) {
+      setEditError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/publicaciones/${deleteTarget.id_publicacion}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'Error al eliminar');
+      }
+      // Quitar de la lista local con animación
+      setProductos(prev => prev.filter(p => p.id_publicacion !== deleteTarget.id_publicacion));
+      setDeleteTarget(null);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const isAdmin = userProfile?.rol === 'admin' || userProfile?.rol === 'superadmin';
@@ -335,11 +406,19 @@ export default function GestionPublicaciones() {
                         <span>Ver detalle</span>
                       </a>
 
-                      {/* Botones Icono (Editar y Eliminar) - Border XL */}
-                      <button className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 transition-colors">
+                      {/* Botones Ícono (Editar y Eliminar) */}
+                      <button
+                        onClick={() => openEdit(pub)}
+                        className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-[#F8F7FF] border border-slate-200 hover:border-[#534AB7]/30 text-slate-500 hover:text-[#534AB7] transition-colors"
+                        title="Editar publicación"
+                      >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-400 hover:text-rose-500 transition-colors">
+                      <button
+                        onClick={() => setDeleteTarget(pub)}
+                        className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-400 hover:text-rose-500 transition-colors"
+                        title="Eliminar publicación"
+                      >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -364,6 +443,210 @@ export default function GestionPublicaciones() {
           </div>
         </div>
       </main>
+
+      {/* ═══ MODAL ELIMINAR ═══ */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !deleting && setDeleteTarget(null)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+            />
+            {/* Dialog */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ pointerEvents: 'none' }}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-5"
+                style={{ pointerEvents: 'auto', fontFamily: "'Inter', sans-serif" }}
+              >
+                {/* Icono */}
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-6 h-6 text-rose-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-[17px] font-black text-slate-800">Eliminar publicación</h2>
+                    <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                      ¿Estás seguro de que deseas eliminar
+                      <span className="font-bold text-slate-700"> "{deleteTarget.titulo}"</span>?
+                      Esta acción no se puede deshacer.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Botones */}
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={deleting}
+                    className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-[13px] hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-[13px] transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {deleting ? 'Eliminando...' : 'Sí, eliminar'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ═══ DRAWER EDITAR ═══ */}
+      <AnimatePresence>
+        {editTarget && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !saving && setEditTarget(null)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+            />
+            {/* Panel lateral */}
+            <motion.div
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 40 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              {/* Header */}
+              <div className="h-20 flex items-center justify-between px-6 border-b border-slate-100 shrink-0">
+                <div>
+                  <h2 className="text-[17px] font-black text-slate-800">Editar publicación</h2>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">Los cambios se guardan inmediatamente</p>
+                </div>
+                <button
+                  onClick={() => setEditTarget(null)}
+                  className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Formulario */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+                {editError && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-[13px] text-red-600 font-medium flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {editError}
+                  </div>
+                )}
+
+                {/* Título */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Título *</label>
+                  <input
+                    type="text"
+                    value={editForm.titulo}
+                    onChange={e => setEditForm(p => ({ ...p, titulo: e.target.value }))}
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all"
+                    placeholder="Título del producto"
+                  />
+                </div>
+
+                {/* Precio */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Precio (COP) *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">$</span>
+                    <input
+                      type="text"
+                      value={editForm.precio}
+                      onChange={e => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        const fmt = raw ? new Intl.NumberFormat('es-CO').format(parseInt(raw)) : '';
+                        setEditForm(p => ({ ...p, precio: fmt }));
+                      }}
+                      className="w-full h-11 pl-8 pr-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                {/* Ubicación */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Ubicación</label>
+                  <input
+                    type="text"
+                    value={editForm.ubicacion}
+                    onChange={e => setEditForm(p => ({ ...p, ubicacion: e.target.value }))}
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all"
+                    placeholder="Ej: Bloque D, Entrada Principal"
+                  />
+                </div>
+
+                {/* Estado */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Estado</label>
+                  <select
+                    value={editForm.estado}
+                    onChange={e => setEditForm(p => ({ ...p, estado: e.target.value }))}
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all cursor-pointer"
+                  >
+                    <option value="activo">Activo / Disponible</option>
+                    <option value="reservado">Reservado</option>
+                    <option value="vendido">Vendido</option>
+                    <option value="pausado">Pausado</option>
+                  </select>
+                </div>
+
+                {/* Descripción */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Descripción</label>
+                  <textarea
+                    value={editForm.descripcion}
+                    onChange={e => setEditForm(p => ({ ...p, descripcion: e.target.value }))}
+                    rows={4}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all resize-none"
+                    placeholder="Describe el estado y detalles del producto..."
+                  />
+                </div>
+              </div>
+
+              {/* Footer con botones */}
+              <div className="px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+                <button
+                  onClick={() => setEditTarget(null)}
+                  disabled={saving}
+                  className="flex-1 h-11 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-[13px] hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleEdit}
+                  disabled={saving || !editForm.titulo.trim()}
+                  className="flex-1 h-11 rounded-xl bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white font-bold text-[13px] transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
