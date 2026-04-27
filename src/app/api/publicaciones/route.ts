@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     // 2. Extraer datos del cuerpo de la petición
     const body = await request.json();
-    const { titulo, descripcion, precio, imagen, ubicacion } = body;
+    const { titulo, descripcion, precio, imagen, ubicacion, id_categoria } = body;
 
     // 3. Validación básica
     if (!titulo || typeof titulo !== 'string' || titulo.trim() === '') {
@@ -35,9 +35,10 @@ export async function POST(request: Request) {
           titulo: titulo.trim(),
           descripcion: descripcion?.trim() || null,
           precio: precio ? parseFloat(precio) : null,
-          imagen: imagen?.trim() || null,
+          imagen: imagen || null,
           ubicacion: ubicacion?.trim() || null,
-          id_usuario: user.id, // Se vincula automáticamente al usuario logueado
+          id_usuario: user.id,
+          id_categoria: id_categoria || null,
           estado: 'activo'
         }
       ])

@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function AuthSwitch() {
   // Render modes
-  const [isSignUp, setIsSignUp] = useState(true);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   // Formularios de Login
   const [loginEmail, setLoginEmail] = useState("");
@@ -26,11 +26,11 @@ export default function AuthSwitch() {
   const [regError, setRegError] = useState("");
 
   useEffect(() => {
-    // Interceptar parámetros por URL para cargar estado log in
+    // Interceptar parámetros por URL para cargar estado
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get("mode") === "login") {
-        setIsSignUp(false);
+      if (urlParams.get("mode") === "register") {
+        setIsSignUp(true);
       }
     }
   }, []);
@@ -421,38 +421,6 @@ export default function AuthSwitch() {
           filter: grayscale(0%) opacity(1);
         }
 
-        .social-text {
-          padding: 1rem 0;
-          font-size: 0.9rem;
-          color: #6b7280;
-        }
-
-        .social-media {
-          display: flex;
-          justify-content: center;
-          gap: 15px;
-        }
-
-        .social-icon {
-          height: 46px;
-          width: 46px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          border: 1px solid #e5e7eb;
-          border-radius: 50%;
-          color: #4b5563;
-          transition: 0.3s;
-          cursor: pointer;
-        }
-
-        .social-icon:hover {
-          border-color: #534AB7;
-          background: #f8f9fa;
-          transform: translateY(-3px);
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-        }
-
         @media (max-width: 870px) {
           .auth-container {
             min-height: 800px;
@@ -537,7 +505,7 @@ export default function AuthSwitch() {
         }
       `}</style>
 
-      <div className="auth-container sign-up-mode">
+      <div className="auth-container">
         <div className="forms-container">
           <div className="signin-signup">
             
@@ -547,7 +515,7 @@ export default function AuthSwitch() {
                 Bienvenido a <span style={{ color: '#534AB7' }}>MarketVersitario</span>
               </h2>
 
-              {loginError && <p className="error-text">{loginError}</p>}
+              {loginError && <p className="error-text" style={{color: 'red', fontSize: '14px', marginBottom: '10px'}}>{loginError}</p>}
 
               <div className="input-field">
                 <i><Mail size={20} /></i>
@@ -583,7 +551,7 @@ export default function AuthSwitch() {
             <form className="sign-up-form" onSubmit={handleRegister}>
               <h2 className="title" style={{ marginBottom: '25px', marginTop: '40px' }}>Crear cuenta</h2>
               
-              {regError && <p className="error-text">{regError}</p>}
+              {regError && <p className="error-text" style={{color: 'red', fontSize: '14px', marginBottom: '10px'}}>{regError}</p>}
 
               <div className="input-field">
                 <i><User size={20} /></i>
@@ -679,5 +647,3 @@ export default function AuthSwitch() {
     </>
   );
 }
-
-

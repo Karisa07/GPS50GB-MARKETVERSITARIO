@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-type Categoria = { id: string; nombre: string };
+type Categoria = { id_categoria: number; nombre: string };
+
 
 export default function NuevaPublicacion() {
   const [loading, setLoading] = useState(false);
@@ -28,9 +29,15 @@ export default function NuevaPublicacion() {
     descripcion: "",
     precio: "",
     ubicacion: "",
-    categoria: "", // Guarda el ID real, ej: "cat_1"
-    imagen: "", // Opcional
+    id_categoria: "", // ID numérico de la categoría
+    imagen: "", // URL final después del upload
   });
+
+  // Estado del archivo de imagen
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Efecto para cerrar combobox al hacer clic afuera
   useEffect(() => {
@@ -43,28 +50,21 @@ export default function NuevaPublicacion() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Simular Fetch de categorías desde BD (NO conectado realmente)
+  // Fetch de categorías desde la BD real
   useEffect(() => {
     const fetchCategorias = async () => {
       setLoadingCategories(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        const mockDB: Categoria[] = [
-          { id: "cat_1", nombre: "Tecnología y Electrónica" },
-          { id: "cat_2", nombre: "Libros y Copias" },
-          { id: "cat_3", nombre: "Útiles Universitarios" },
-          { id: "cat_4", nombre: "Ropa y Accesorios" },
-          { id: "cat_5", nombre: "Servicios Estudiantiles" },
-          { id: "cat_6", nombre: "Otros" },
-        ];
-        setCategoriasBD(mockDB);
+        const res = await fetch('/api/categorias');
+        if (!res.ok) throw new Error('Error cargando categorías');
+        const json = await res.json();
+        setCategoriasBD(json.data || []);
       } catch (err) {
         setCategoriesError("No se pudieron cargar las categorías.");
       } finally {
         setLoadingCategories(false);
       }
     };
-
     fetchCategorias();
   }, []);
 
@@ -73,9 +73,9 @@ export default function NuevaPublicacion() {
     cat.nombre.toLowerCase().includes(comboboxSearch.toLowerCase())
   );
 
-  const selectedCategoryObj = categoriasBD.find(c => c.id === formData.categoria);
+  const selectedCategoryObj = categoriasBD.find(c => String(c.id_categoria) === formData.id_categoria);
   
-  const categoryWarning = formData.categoria && !loadingCategories && !selectedCategoryObj 
+  const categoryWarning = formData.id_categoria && !loadingCategories && !selectedCategoryObj 
     ? "La categoría asignada previamente ya no existe en la base de datos." 
     : "";
 
@@ -96,8 +96,18 @@ export default function NuevaPublicacion() {
     setFormData(prev => ({ ...prev, precio: formatted }));
   };
 
+  // Manejo de cambio de imagen
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    // marcamos que hay imagen para el progreso
+    setFormData(prev => ({ ...prev, imagen: file.name }));
+  };
+
   // Cálculos de progreso
-  const requiredFields = ["titulo", "precio", "ubicacion", "categoria", "descripcion"];
+  const requiredFields = ["titulo", "precio", "ubicacion", "id_categoria", "descripcion"];
   const allFields = [...requiredFields, "imagen"];
   
   const requiredFilledCount = useMemo(() => {
@@ -120,14 +130,32 @@ export default function NuevaPublicacion() {
     setErrorText("");
 
     try {
-      const numericPrice = formData.precio.replace(/\./g, "");
+      let imageUrl = "";
 
+      // 1. Subir imagen si hay una seleccionada
+      if (imageFile) {
+        setUploadingImage(true);
+        const uploadForm = new FormData();
+        uploadForm.append('file', imageFile);
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: uploadForm,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadData.error || 'Error al subir la imagen');
+        imageUrl = uploadData.url;
+        setUploadingImage(false);
+      }
+
+      // 2. Enviar publicación con URL de imagen y categoría real
+      const numericPrice = formData.precio.replace(/\./g, "");
       const payload = {
         titulo: formData.titulo,
-        descripcion: `[Categoría ID: ${formData.categoria}] ${formData.descripcion}`, 
+        descripcion: formData.descripcion,
         precio: numericPrice,
         ubicacion: formData.ubicacion,
-        imagen: formData.imagen
+        id_categoria: Number(formData.id_categoria),
+        imagen: imageUrl || null,
       };
 
       const res = await fetch("/api/publicaciones", {
@@ -139,12 +167,12 @@ export default function NuevaPublicacion() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al crear la publicación");
 
-      // Redirección inmediata, sin success screen animada
-      window.location.href = "/";
+      window.location.href = "/publicaciones";
       
     } catch (err: any) {
       setErrorText(err.message);
       setLoading(false);
+      setUploadingImage(false);
     }
   };
 
@@ -256,17 +284,17 @@ export default function NuevaPublicacion() {
                         {filteredCategories.length > 0 ? (
                           filteredCategories.map(cat => (
                             <div 
-                              key={cat.id}
+                              key={cat.id_categoria}
                               onClick={() => {
-                                setFormData(prev => ({ ...prev, categoria: cat.id }));
+                                setFormData(prev => ({ ...prev, id_categoria: String(cat.id_categoria) }));
                                 setComboboxSearch("");
                                 setIsComboboxOpen(false);
                               }}
-                              className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-[14px] transition-colors ${formData.categoria === cat.id ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                              className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer text-[14px] transition-colors ${formData.id_categoria === String(cat.id_categoria) ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
                             >
                               {cat.nombre}
                               <AnimatePresence>
-                                {formData.categoria === cat.id && (
+                                {formData.id_categoria === String(cat.id_categoria) && (
                                   <motion.span
                                     initial={{ opacity: 0, x: -6, scale: 0.9 }}
                                     animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -343,16 +371,43 @@ export default function NuevaPublicacion() {
                 />
               </div>
 
-              {/* Dropzone */}
+              {/* Dropzone / Upload */}
               <div className="space-y-2 pt-2">
                 <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Fotografía (OPCIONAL)</Label>
-                <div className="relative border border-dashed border-slate-300 hover:border-[#534AB7]/60 rounded-xl bg-slate-50 hover:bg-[#F8F7FF] transition-all duration-300 cursor-pointer group flex flex-row items-center justify-start p-4 gap-4">
+                
+                {/* Preview si hay imagen */}
+                {imagePreview && (
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-200 mb-2">
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => { setImageFile(null); setImagePreview(""); setFormData(prev => ({ ...prev, imagen: "" })); }}
+                      className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-lg px-2 py-1 text-[11px] font-bold text-red-500 border border-red-100 shadow-sm transition"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                )}
+
+                <div
+                  className="relative border border-dashed border-slate-300 hover:border-[#534AB7]/60 rounded-xl bg-slate-50 hover:bg-[#F8F7FF] transition-all duration-300 cursor-pointer group flex flex-row items-center justify-start p-4 gap-4"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
                   <div className="p-2.5 bg-white border border-slate-100 rounded-lg shadow-sm group-hover:shadow group-hover:border-[#534AB7]/20 transition-all duration-300">
                     <ImageIcon className="w-5 h-5 text-slate-400 group-hover:text-[#534AB7]" strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="text-[14px] font-medium text-slate-700 group-hover:text-[#534AB7] transition-colors">Subir imagen principal</p>
-                    <p className="text-[12px] text-slate-400 mt-0.5">PNG, JPG hasta 5MB</p>
+                    <p className="text-[14px] font-medium text-slate-700 group-hover:text-[#534AB7] transition-colors">
+                      {imageFile ? imageFile.name : "Subir imagen principal"}
+                    </p>
+                    <p className="text-[12px] text-slate-400 mt-0.5">PNG, JPG, WebP hasta 5MB</p>
                   </div>
                 </div>
               </div>
@@ -408,7 +463,8 @@ export default function NuevaPublicacion() {
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" /> Publicando...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {uploadingImage ? 'Subiendo imagen...' : 'Publicando...'}
                   </>
                 ) : (
                   "Crear Publicación"

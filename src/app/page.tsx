@@ -5,86 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, Bell, LayoutDashboard, Package, 
   Settings, LogOut, ChevronDown, MapPin, 
-  Heart, Filter, Sparkles, Check
+  Heart, Filter, Sparkles, Check, Loader2
 } from "lucide-react";
-
-// -- MOCK DATA --
-const MOCK_PRODUCTS = [
-  {
-    id: "1",
-    titulo: "MacBook Air M1 2020 256GB",
-    precio: "2.800.000",
-    precioNum: 2800000,
-    categoria: "Tecnología",
-    ubicacion: "Biblioteca Central",
-    estado: "disponible", // disponible, reservado, vendido
-    imagen: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=600&auto=format&fit=crop",
-    vendedor: { nombre: "Carlos M." },
-    tiempo: "Hace 2 horas"
-  },
-  {
-    id: "2",
-    titulo: "Libro: Cálculo de Stewart 8va Edición",
-    precio: "85.000",
-    precioNum: 85000,
-    categoria: "Libros",
-    ubicacion: "Bloque 14",
-    estado: "disponible",
-    imagen: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop",
-    vendedor: { nombre: "Ana López" },
-    tiempo: "Hace 5 horas"
-  },
-  {
-    id: "3",
-    titulo: "Calculadora Casio FX-991LAX",
-    precio: "120.000",
-    precioNum: 120000,
-    categoria: "Útiles",
-    ubicacion: "Plazoleta Principal",
-    estado: "reservado",
-    imagen: "https://images.unsplash.com/photo-1574607383476-f517f260d30b?q=80&w=600&auto=format&fit=crop",
-    vendedor: { nombre: "Daniel P." },
-    tiempo: "Ayer"
-  },
-  {
-    id: "4",
-    titulo: "iPad Pro 11' + Apple Pencil",
-    precio: "3.200.000",
-    precioNum: 3200000,
-    categoria: "Tecnología",
-    ubicacion: "Cafetería Ciencias",
-    estado: "disponible",
-    imagen: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?q=80&w=600&auto=format&fit=crop",
-    vendedor: { nombre: "Sofía R." },
-    tiempo: "Hace 1 día"
-  },
-  {
-    id: "5",
-    titulo: "Audífonos Sony WH-1000XM4",
-    precio: "750.000",
-    precioNum: 750000,
-    categoria: "Tecnología",
-    ubicacion: "Bloque 21",
-    estado: "vendido",
-    imagen: "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?q=80&w=600&auto=format&fit=crop",
-    vendedor: { nombre: "Mateo G." },
-    tiempo: "Hace 2 días"
-  },
-  {
-    id: "6",
-    titulo: "Bata de Laboratorio Talla M",
-    precio: "25.000",
-    precioNum: 25000,
-    categoria: "Ropa",
-    ubicacion: "Laboratorios Sur",
-    estado: "disponible",
-    imagen: "https://images.unsplash.com/photo-1584982751601-97d8cb0f66fc?q=80&w=600&auto=format&fit=crop",
-    vendedor: { nombre: "Laura V." },
-    tiempo: "Hace 3 días"
-  }
-];
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 const CATEGORIAS = ["Todas las categorías", "Tecnología", "Libros", "Útiles", "Ropa", "Servicios Estudiantiles", "Otros"];
+
 
 const RANGOS_PRECIO = [
   { label: "Todos los precios", min: 0, max: Infinity },
@@ -106,7 +33,13 @@ const cardVariants = {
 };
 
 export default function FeedMarketplace() {
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState("Todas las categorías");
+  const [productos, setProductos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userAuth, setUserAuth] = useState<any>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [activePriceRange, setActivePriceRange] = useState(0); // Index of RANGOS_PRECIO
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
@@ -116,6 +49,43 @@ export default function FeedMarketplace() {
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const [comboboxSearch, setComboboxSearch] = useState("");
   const comboboxRef = React.useRef<HTMLDivElement>(null);
+
+  // Carga inicial (Auth y Productos)
+  React.useEffect(() => {
+    const fetchUserAndData = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        setUserAuth(user);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setUserProfile(profile);
+
+        // Redirect admin to dashboard
+        if (profile?.rol === 'admin' || profile?.rol === 'superadmin') {
+          router.push('/publicaciones');
+          return;
+        }
+      }
+
+      try {
+        const res = await fetch('/api/publicaciones?estado=disponible');
+        if (res.ok) {
+          const json = await res.json();
+          setProductos(json.data || []);
+        }
+      } catch (err) {
+        console.error("Error fetching products:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUserAndData();
+  }, []);
 
   // Cerrar combobox al hacer click afuera
   React.useEffect(() => {
@@ -137,14 +107,20 @@ export default function FeedMarketplace() {
     setLikedItems(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/auth/login';
+  };
+
   const currentPriceRange = RANGOS_PRECIO[activePriceRange];
 
-  const filteredProducts = MOCK_PRODUCTS.filter(p => {
-    const matchCategory = activeCategory === "Todas las categorías" || p.categoria === activeCategory;
+  const filteredProducts = productos.filter(p => {
     const matchSearch = p.titulo.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchPrice = p.precioNum >= currentPriceRange.min && p.precioNum <= currentPriceRange.max;
-    return matchCategory && matchSearch && matchPrice;
+    const matchPrice = p.precio >= currentPriceRange.min && p.precio <= currentPriceRange.max;
+    return matchSearch && matchPrice;
   });
+
+  const isAdmin = userProfile?.rol === 'admin' || userProfile?.rol === 'superadmin';
 
   return (
     <div 
@@ -169,18 +145,22 @@ export default function FeedMarketplace() {
           <div className="px-5 py-6">
             <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
             <nav className="space-y-1.5">
-              <a href="#" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Explorar Feed</span>
-              </a>
-              <a href="/publicaciones/nueva" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+              {!isAdmin && (
+                <a href="/" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Explorar Feed</span>
+                </a>
+              )}
+              <a href="/publicaciones" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${isAdmin ? 'bg-[#F8F7FF] text-[#534AB7]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
                 <Package className="w-4 h-4" />
-                <span>Mis Publicaciones</span>
+                <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
               </a>
-              <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                <Heart className="w-4 h-4" />
-                <span>Guardados</span>
-              </a>
+              {!isAdmin && (
+                <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+                  <Heart className="w-4 h-4" />
+                  <span>Guardados</span>
+                </a>
+              )}
             </nav>
           </div>
         </div>
@@ -193,10 +173,10 @@ export default function FeedMarketplace() {
               <Settings className="w-4 h-4" />
               <span>Configuración</span>
             </a>
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors mt-2">
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors mt-2">
               <LogOut className="w-4 h-4" />
               <span>Cerrar Sesión</span>
-            </a>
+            </button>
           </nav>
         </div>
       </aside>
@@ -226,12 +206,14 @@ export default function FeedMarketplace() {
             </button>
             <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border-2 border-white shadow-sm">
-                JR
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border-2 border-white shadow-sm uppercase">
+                {userProfile?.nombres?.charAt(0) || userAuth?.email?.charAt(0) || "U"}
               </div>
               <div className="hidden sm:block">
-                <p className="text-[13px] font-bold text-slate-700 group-hover:text-[#534AB7] transition-colors">Jason Ranti</p>
-                <p className="text-[11px] text-slate-400 font-medium">Estudiante</p>
+                <p className="text-[13px] font-bold text-slate-700 group-hover:text-[#534AB7] transition-colors">
+                  {userProfile ? `${userProfile.nombres} ${userProfile.apellidos}` : "Usuario"}
+                </p>
+                <p className="text-[11px] text-slate-400 font-medium capitalize">{userProfile?.rol || "Estudiante"}</p>
               </div>
               <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
             </div>
@@ -370,12 +352,17 @@ export default function FeedMarketplace() {
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6"
           >
             <AnimatePresence mode="popLayout">
-              {filteredProducts.map((producto) => {
-                const isLiked = likedItems[producto.id] || false;
+              {loading ? (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#534AB7] mb-4" />
+                  <p className="text-slate-500 font-medium">Cargando publicaciones...</p>
+                </div>
+              ) : filteredProducts.map((producto) => {
+                const isLiked = likedItems[producto.id_publicacion] || false;
                 
                 return (
                   <motion.div
-                    key={producto.id}
+                    key={producto.id_publicacion}
                     layout
                     variants={cardVariants}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -385,7 +372,7 @@ export default function FeedMarketplace() {
                     {/* Imagen del Producto (Aspect Ratio 4/3) */}
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
                       <img 
-                        src={producto.imagen} 
+                        src={producto.imagen || "https://images.unsplash.com/photo-1555421689-d68471e189f2?q=80&w=600&auto=format&fit=crop"} 
                         alt={producto.titulo} 
                         className={`w-full h-full object-cover transition-transform duration-500 ${
                           producto.estado === "vendido" ? "grayscale opacity-60" : "group-hover:scale-105"
@@ -413,7 +400,7 @@ export default function FeedMarketplace() {
                       
                       {/* Botón Favorito Flotante */}
                       <motion.button 
-                        onClick={(e) => toggleLike(producto.id, e)}
+                        onClick={(e) => toggleLike(producto.id_publicacion, e)}
                         whileTap={{ scale: 1.4 }}
                         animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
                         transition={{ duration: 0.3, type: "spring" }}
@@ -428,9 +415,11 @@ export default function FeedMarketplace() {
                       
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[11px] font-bold text-[#534AB7] uppercase tracking-wider bg-[#F8F7FF] px-2 py-0.5 rounded-sm">
-                          {producto.categoria}
+                          {producto.categoria || "Varios"}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-medium">{producto.tiempo}</span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {new Date(producto.created_at).toLocaleDateString()}
+                        </span>
                       </div>
 
                       <h3 className="text-[15px] font-bold text-slate-800 leading-snug line-clamp-2 mb-3 group-hover:text-[#534AB7] transition-colors">
@@ -443,7 +432,7 @@ export default function FeedMarketplace() {
                           {/* Precio Estelar con separador sutil */}
                           <p className="text-xl font-black text-slate-800 tracking-tight">
                             <span className="text-sm font-semibold text-slate-400 mr-1">$</span>
-                            {producto.precio}
+                            {new Intl.NumberFormat("es-CO").format(producto.precio || 0)}
                           </p>
                         </div>
 
@@ -451,13 +440,13 @@ export default function FeedMarketplace() {
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm">
-                              {producto.vendedor.nombre.charAt(0)}
+                              {producto.perfil?.nombres?.charAt(0) || "U"}
                             </div>
-                            <span className="text-[12px] font-medium text-slate-600">{producto.vendedor.nombre}</span>
+                            <span className="text-[12px] font-medium text-slate-600">{producto.perfil?.nombres} {producto.perfil?.apellidos}</span>
                           </div>
                           <div className="flex items-center gap-1 text-slate-400">
                             <MapPin className="w-3.5 h-3.5" />
-                            <span className="text-[11px] font-medium truncate max-w-[80px]">{producto.ubicacion}</span>
+                            <span className="text-[11px] font-medium truncate max-w-[80px]">{producto.ubicacion || "Campus"}</span>
                           </div>
                         </div>
                       </div>
