@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
@@ -18,7 +18,7 @@ export async function PUT(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json(
         { error: 'El ID de la publicación es requerido.' },
@@ -111,7 +111,7 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
@@ -126,7 +126,7 @@ export async function DELETE(
       );
     }
 
-    const { id } = params;
+    const { id } = await params;
     if (!id) {
       return NextResponse.json(
         { error: 'El ID de la publicación es requerido.' },
@@ -186,11 +186,11 @@ export async function DELETE(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -199,12 +199,13 @@ export async function GET(
       );
     }
 
-    // Consultar la publicación específica haciendo JOIN con profiles
+    // Consultar la publicación específica haciendo JOIN con profiles y categorias
     const { data, error } = await supabase
       .from('publicacion')
       .select(`
         *,
-        perfil:profiles(nombres, apellidos, programa_academico, telefono)
+        perfil:profiles(nombres, apellidos, programa_academico, telefono),
+        categorias(nombre)
       `)
       .eq('id_publicacion', id)
       .single();
