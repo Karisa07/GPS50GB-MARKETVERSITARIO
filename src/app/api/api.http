@@ -1,0 +1,129 @@
+### Marketvesitario - API Tests
+### Extensión requerida: REST Client (humao.rest-client)
+
+@baseUrl = http://localhost:3000
+
+# ================================================================
+# AUTH - REGISTRO
+# ================================================================
+
+### Registrar nuevo estudiante
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "estudiante@test.com",
+  "password": "Test1234!",
+  "nombres": "Maria",
+  "apellidos": "Lopez",
+  "tipo_documento": "CC",
+  "documento_identidad": "1234567890",
+  "programa_academico": "Ingenieria de Sistemas"
+}
+
+###
+
+### Registrar sin campo obligatorio (debe retornar error 400)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "incompleto@test.com",
+  "password": "Test1234!"
+}
+
+###
+
+### Registrar con contraseña corta (debe retornar error 400)
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "otro@test.com",
+  "password": "123",
+  "nombres": "Juan",
+  "apellidos": "Perez",
+  "tipo_documento": "CC",
+  "documento_identidad": "9876543210"
+}
+
+###
+
+# ================================================================
+# AUTH - LOGIN
+# ================================================================
+
+### Login exitoso (usando estudiante de la bd local)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "estudiante@marketvesitario.com",
+  "password": "Test1234!"
+}
+
+###
+
+### Login fallido (contraseña incorrecta)
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "estudiante@marketvesitario.com",
+  "password": "mal"
+}
+
+###
+
+# ================================================================
+# PUBLICACIONES
+# ================================================================
+
+### Crear una publicación (requiere estar autenticado - enviar las cookies de sesión si se prueba desde aquí, o probar desde la app)
+POST {{baseUrl}}/api/publicaciones
+Content-Type: application/json
+
+{
+  "titulo": "Calculadora Científica Casio",
+  "descripcion": "Calculadora en perfecto estado, poco uso.",
+  "precio": 45000,
+  "ubicacion": "Bloque D"
+}
+
+###
+
+### Editar una publicación (requiere estar autenticado como el dueño de la publicación)
+PUT {{baseUrl}}/api/publicaciones/1
+Content-Type: application/json
+
+{
+  "titulo": "Calculadora Científica Casio (Editada)",
+  "precio": 42000,
+  "estado": "pausado"
+}
+
+###
+
+### Eliminar una publicación (requiere estar autenticado como el dueño de la publicación)
+DELETE {{baseUrl}}/api/publicaciones/1
+Content-Type: application/json
+
+###
+
+### Listar todas las publicaciones activas (No requiere autenticación)
+GET {{baseUrl}}/api/publicaciones
+Content-Type: application/json
+
+###
+
+### Listar publicaciones con filtro (ejemplo: todas)
+GET {{baseUrl}}/api/publicaciones?estado=todos&limit=10
+Content-Type: application/json
+
+###
+
+### Obtener el detalle de una publicación específica (No requiere autenticación)
+GET {{baseUrl}}/api/publicaciones/1
+Content-Type: application/json
+
+###
