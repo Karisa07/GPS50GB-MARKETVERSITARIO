@@ -29,7 +29,7 @@ const containerVariants = {
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } }
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" as const } }
 };
 
 export default function FeedMarketplace() {
@@ -41,7 +41,8 @@ export default function FeedMarketplace() {
   const [userAuth, setUserAuth] = useState<any>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activePriceRange, setActivePriceRange] = useState(0); // Index of RANGOS_PRECIO
+  const [isSearching, setIsSearching] = useState(false); // debounce indicator
+  const [activePriceRange, setActivePriceRange] = useState(0);
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
   const [likedItems, setLikedItems] = useState<{ [key: string]: boolean }>({});
 
@@ -98,6 +99,47 @@ export default function FeedMarketplace() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Búsqueda debounced: cuando el query cambia, espera 400ms y consulta el servidor
+  React.useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    // Si está vacío, restaurar carga completa
+    if (!trimmed) {
+      const reload = async () => {
+        setIsSearching(true);
+        try {
+          const res = await fetch('/api/publicaciones?estado=activo');
+          if (res.ok) {
+            const json = await res.json();
+            setProductos(json.data || []);
+          }
+        } finally {
+          setIsSearching(false);
+        }
+      };
+      reload();
+      return;
+    }
+
+    // Debounce 400ms antes de llamar al servidor
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ estado: 'activo', q: trimmed });
+        const res = await fetch(`/api/publicaciones?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setProductos(json.data || []);
+        }
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   const filteredCategories = CATEGORIAS.filter(cat => 
     cat.toLowerCase().includes(comboboxSearch.toLowerCase())
   );
@@ -114,10 +156,10 @@ export default function FeedMarketplace() {
 
   const currentPriceRange = RANGOS_PRECIO[activePriceRange];
 
+  // El filtro de precio sigue siendo client-side (datos ya en memoria)
   const filteredProducts = productos.filter(p => {
-    const matchSearch = p.titulo.toLowerCase().includes(searchQuery.toLowerCase());
     const matchPrice = p.precio >= currentPriceRange.min && p.precio <= currentPriceRange.max;
-    return matchSearch && matchPrice;
+    return matchPrice;
   });
 
   const isAdmin = userProfile?.rol === 'admin' || userProfile?.rol === 'superadmin';
@@ -188,14 +230,33 @@ export default function FeedMarketplace() {
         <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
           {/* Barra de Búsqueda Prominente */}
           <div className="flex-1 max-w-2xl relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            {isSearching ? (
+              <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#534AB7] animate-spin" />
+            ) : (
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            )}
             <input 
               type="text" 
               placeholder="Buscar calculadoras, libros, tecnología..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-11 pr-4 bg-slate-100/70 border-transparent rounded-full focus:bg-white focus:border-[#534AB7]/30 focus:ring-2 focus:ring-[#534AB7]/10 transition-all text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
+              className="w-full h-11 pl-11 pr-10 bg-slate-100/70 border-transparent rounded-full focus:bg-white focus:border-[#534AB7]/30 focus:ring-2 focus:ring-[#534AB7]/10 transition-all text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
             />
+            {/* Botón limpiar búsqueda */}
+            <AnimatePresence>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-300 hover:bg-slate-400 flex items-center justify-center text-white transition-colors"
+                >
+                  <span className="text-[10px] font-bold leading-none">✕</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* User Widgets (Right) */}
@@ -357,6 +418,11 @@ export default function FeedMarketplace() {
                   <Loader2 className="w-8 h-8 animate-spin text-[#534AB7] mb-4" />
                   <p className="text-slate-500 font-medium">Cargando publicaciones...</p>
                 </div>
+              ) : isSearching ? (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center">
+                  <Loader2 className="w-7 h-7 animate-spin text-[#534AB7] mb-3" />
+                  <p className="text-[13px] text-slate-400 font-medium">Buscando...</p>
+                </div>
               ) : filteredProducts.map((producto) => {
                 const isLiked = likedItems[producto.id_publicacion] || false;
                 
@@ -458,16 +524,39 @@ export default function FeedMarketplace() {
             </AnimatePresence>
           </motion.div>
 
-          {filteredProducts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+          {!loading && !isSearching && filteredProducts.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center justify-center py-20 text-center"
+            >
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
                 <Search className="w-8 h-8 text-slate-300" />
               </div>
-              <h3 className="text-lg font-bold text-slate-700">No se encontraron productos</h3>
-              <p className="text-sm text-slate-500 mt-1 max-w-sm">
-                No hay resultados para tu búsqueda con los filtros actuales. Intenta modificar el rango de precio o la categoría.
-              </p>
-            </div>
+              {searchQuery.trim() ? (
+                <>
+                  <h3 className="text-[16px] font-black text-slate-700">
+                    Sin resultados para &ldquo;{searchQuery}&rdquo;
+                  </h3>
+                  <p className="text-[13px] text-slate-500 mt-1 max-w-sm">
+                    Intenta con otras palabras clave o revisa los filtros de precio.
+                  </p>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="mt-4 px-4 py-2 rounded-xl border border-slate-200 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    Limpiar búsqueda
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-[16px] font-black text-slate-700">No hay publicaciones disponibles</h3>
+                  <p className="text-[13px] text-slate-500 mt-1 max-w-sm">
+                    Aún no hay productos en este rango de precio o categoría.
+                  </p>
+                </>
+              )}
+            </motion.div>
           )}
 
         </div>
