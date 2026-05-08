@@ -19,6 +19,10 @@ export default function GestionPublicaciones() {
   const [activeCategory, setActiveCategory] = useState("Todas las categorías");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
+  const PERIODOS = ["Todo el periodo", "Últimas 24 horas", "Última semana", "Último mes"];
+  const [activePeriod, setActivePeriod] = useState("Todo el periodo");
+  const [isPeriodOpen, setIsPeriodOpen] = useState(false);
+
   const [productos, setProductos] = useState<any[]>([]);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,7 +175,18 @@ export default function GestionPublicaciones() {
     // Filtro por categoría
     const matchCategory = activeCategory === "Todas las categorías" || pub.categorias?.nombre === activeCategory;
 
-    return matchTab && matchSearch && matchCategory;
+    // Filtro por periodo
+    const matchPeriod = (() => {
+      if (activePeriod === "Todo el periodo") return true;
+      const pubDate = new Date(pub.created_at);
+      const diffDays = (new Date().getTime() - pubDate.getTime()) / (1000 * 3600 * 24);
+      if (activePeriod === "Últimas 24 horas") return diffDays <= 1;
+      if (activePeriod === "Última semana") return diffDays <= 7;
+      if (activePeriod === "Último mes") return diffDays <= 30;
+      return true;
+    })();
+
+    return matchTab && matchSearch && matchCategory && matchPeriod;
   });
 
   return (
@@ -358,10 +373,36 @@ export default function GestionPublicaciones() {
                 </div>
 
                 {/* Filtro Período border-radius xl */}
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-                  <span>Todo el periodo</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsPeriodOpen(!isPeriodOpen)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <span>{activePeriod}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                  <AnimatePresence>
+                    {isPeriodOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                        className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
+                      >
+                        {PERIODOS.map((period) => (
+                          <div 
+                            key={period}
+                            onClick={() => { setActivePeriod(period); setIsPeriodOpen(false); }}
+                            className={`px-4 py-2.5 text-[13px] font-medium cursor-pointer transition-colors flex items-center justify-between ${activePeriod === period ? 'bg-[#F8F7FF] text-[#534AB7]' : 'text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            {period}
+                            {activePeriod === period && <Check className="w-3.5 h-3.5" />}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
 
