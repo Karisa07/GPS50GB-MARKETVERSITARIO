@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const CATEGORIAS = ["Todas las categorías", "Tecnología", "Libros", "Útiles", "Ropa", "Servicios Estudiantiles", "Otros"];
 export default function GestionPublicaciones() {
@@ -53,6 +54,12 @@ export default function GestionPublicaciones() {
           .eq('id', user.id)
           .single();
         setUserProfile(profile);
+        
+        if (profile?.estado === 'inactivo') {
+          await supabase.auth.signOut();
+          router.push('/auth/login?error=account_disabled');
+          return;
+        }
       }
 
       try {
@@ -211,17 +218,25 @@ export default function GestionPublicaciones() {
           <div className="px-5 py-6">
             <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
             <nav className="space-y-1.5">
-              {!isAdmin && (
-                <a href="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+              {userProfile && !isAdmin && (
+                <Link href="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
                   <LayoutDashboard className="w-4 h-4" />
                   <span>Explorar Feed</span>
-                </a>
+                </Link>
               )}
-              <a href="/publicaciones" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
-                <Package className="w-4 h-4" />
-                <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
-              </a>
-              {!isAdmin && (
+              {userProfile && (
+                <Link href="/publicaciones" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
+                  <Package className="w-4 h-4" />
+                  <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
+                </Link>
+              )}
+              {userProfile && isAdmin && (
+                <Link href="/usuarios" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span>Usuarios</span>
+                </Link>
+              )}
+              {userProfile && !isAdmin && (
                 <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
                   <Heart className="w-4 h-4" />
                   <span>Guardados</span>
@@ -250,47 +265,34 @@ export default function GestionPublicaciones() {
       {/* 2. CONTENIDO PRINCIPAL */}
       <main className="flex-1 flex flex-col min-w-0">
         
-        {/* Topbar: Buscador, Tabs y Perfil (Consistente con page.tsx) */}
+        {/* Topbar: Buscador y Perfil (Consistente con page.tsx) */}
         <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
           
-          <div className="flex items-center gap-8 h-full">
-            {/* Barra de Búsqueda Prominente */}
-            <div className="hidden md:block w-64 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Buscar publicación..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 pl-11 pr-4 bg-slate-100/70 border-transparent rounded-full focus:bg-white focus:border-[#534AB7]/30 focus:ring-2 focus:ring-[#534AB7]/10 transition-all text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
-              />
-            </div>
-
-            {/* Tabs de Navegación inspirados en la referencia */}
-            <div className="flex items-center gap-6 h-full pt-2">
-              {!isAdmin && (
-                <button 
-                  onClick={() => setActiveTab("Mis Publicaciones")}
-                  className={`h-full relative text-[14px] font-bold transition-colors ${activeTab === "Mis Publicaciones" ? "text-[#534AB7]" : "text-slate-400 hover:text-slate-600"}`}
+          {/* Barra de Búsqueda Prominente */}
+          <div className="flex-1 max-w-2xl relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar por título, ID, autor, descripción..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 pl-11 pr-10 bg-slate-100/70 border-transparent rounded-full focus:bg-white focus:border-[#534AB7]/30 focus:ring-2 focus:ring-[#534AB7]/10 transition-all text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
+            />
+            {/* Botón limpiar búsqueda */}
+            <AnimatePresence>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-300 hover:bg-slate-400 flex items-center justify-center text-white transition-colors"
                 >
-                  Mis Publicaciones
-                  {activeTab === "Mis Publicaciones" && (
-                    <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#534AB7] rounded-t-full" />
-                  )}
-                </button>
+                  <span className="text-[10px] font-bold leading-none">✕</span>
+                </motion.button>
               )}
-              {isAdmin && (
-                <button 
-                  onClick={() => setActiveTab("Global (Admin)")}
-                  className={`h-full relative text-[14px] font-bold transition-colors ${activeTab === "Global (Admin)" ? "text-[#534AB7]" : "text-slate-400 hover:text-slate-600"}`}
-                >
-                  Todas las Publicaciones
-                  {activeTab === "Global (Admin)" && (
-                    <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#534AB7] rounded-t-full" />
-                  )}
-                </button>
-              )}
-            </div>
+            </AnimatePresence>
           </div>
 
           {/* User Widgets (Right) - IDÉNTICO AL FEED */}
@@ -301,7 +303,7 @@ export default function GestionPublicaciones() {
             </button>
             <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border border-white shadow-sm uppercase">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border-2 border-white shadow-sm uppercase">
                 {userProfile?.nombres?.charAt(0) || userAuth?.email?.charAt(0) || "U"}
               </div>
               <div className="hidden sm:block">
