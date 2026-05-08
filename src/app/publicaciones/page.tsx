@@ -20,6 +20,7 @@ export default function GestionPublicaciones() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   const [productos, setProductos] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userAuth, setUserAuth] = useState<any>(null);
@@ -30,7 +31,7 @@ export default function GestionPublicaciones() {
 
   // Estado modal editar
   const [editTarget, setEditTarget] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ titulo: '', precio: '', ubicacion: '', descripcion: '', estado: '' });
+  const [editForm, setEditForm] = useState({ titulo: '', precio: '', ubicacion: '', descripcion: '', estado: '', id_categoria: '' });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -51,10 +52,19 @@ export default function GestionPublicaciones() {
       }
 
       try {
-        const res = await fetch('/api/publicaciones?estado=todos');
-        if (res.ok) {
-          const json = await res.json();
+        const [resPubs, resCats] = await Promise.all([
+          fetch('/api/publicaciones?estado=todos'),
+          fetch('/api/categorias')
+        ]);
+        
+        if (resPubs.ok) {
+          const json = await resPubs.json();
           setProductos(json.data || []);
+        }
+        
+        if (resCats.ok) {
+          const jsonCats = await resCats.json();
+          setCategorias(jsonCats.data || []);
         }
       } catch (err) {
         console.error("Error fetching products:", err);
@@ -78,6 +88,7 @@ export default function GestionPublicaciones() {
       ubicacion: pub.ubicacion || '',
       descripcion: pub.descripcion || '',
       estado: pub.estado || 'activo',
+      id_categoria: pub.id_categoria ? String(pub.id_categoria) : '',
     });
     setEditError('');
   };
@@ -96,6 +107,7 @@ export default function GestionPublicaciones() {
           ubicacion: editForm.ubicacion,
           descripcion: editForm.descripcion,
           estado: editForm.estado,
+          id_categoria: editForm.id_categoria,
         }),
       });
       const json = await res.json();
@@ -145,6 +157,8 @@ export default function GestionPublicaciones() {
   const filteredData = productos.filter(pub => {
     const isMine = pub.id_usuario === userAuth?.id;
     const matchTab = activeTab === "Global (Admin)" ? true : isMine;
+    
+    // Filtro por búsqueda
     const q = searchQuery.toLowerCase();
     const matchSearch = !q ||
       pub.titulo?.toLowerCase().includes(q) ||
@@ -153,7 +167,11 @@ export default function GestionPublicaciones() {
       String(pub.id_publicacion).includes(q) ||
       pub.perfil?.nombres?.toLowerCase().includes(q) ||
       pub.perfil?.apellidos?.toLowerCase().includes(q);
-    return matchTab && matchSearch;
+
+    // Filtro por categoría
+    const matchCategory = activeCategory === "Todas las categorías" || pub.categorias?.nombre === activeCategory;
+
+    return matchTab && matchSearch && matchCategory;
   });
 
   return (
@@ -324,7 +342,7 @@ export default function GestionPublicaciones() {
                         exit={{ opacity: 0, y: -5, scale: 0.95 }}
                         className="absolute right-0 top-12 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
                       >
-                        {CATEGORIAS.map((cat) => (
+                        {["Todas las categorías", ...categorias.map(c => c.nombre)].map((cat) => (
                           <div 
                             key={cat}
                             onClick={() => { setActiveCategory(cat); setIsCategoryOpen(false); }}
@@ -381,7 +399,9 @@ export default function GestionPublicaciones() {
                     {/* Título y Autor/Categoría */}
                     <div className="flex-1 min-w-[200px]">
                       <p className="text-[14px] font-bold text-slate-800 truncate group-hover:text-[#534AB7] transition-colors">{pub.titulo}</p>
-                      <p className="text-[12px] text-slate-500 font-medium">{activeTab === "Global (Admin)" ? `Por ${pub.perfil?.nombres} ${pub.perfil?.apellidos}` : "Varios"}</p>
+                      <p className="text-[12px] text-slate-500 font-medium">
+                        {activeTab === "Global (Admin)" ? `Por ${pub.perfil?.nombres} ${pub.perfil?.apellidos} • ${pub.categorias?.nombre || 'Sin categoría'}` : (pub.categorias?.nombre || "Sin categoría")}
+                      </p>
                     </div>
 
                     {/* Precio */}
@@ -600,6 +620,23 @@ export default function GestionPublicaciones() {
                     className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all"
                     placeholder="Ej: Bloque D, Entrada Principal"
                   />
+                </div>
+
+                {/* Categoría */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Categoría</label>
+                  <select
+                    value={editForm.id_categoria}
+                    onChange={e => setEditForm(p => ({ ...p, id_categoria: e.target.value }))}
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all cursor-pointer"
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {categorias.map(cat => (
+                      <option key={cat.id_categoria} value={cat.id_categoria}>
+                        {cat.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Estado */}

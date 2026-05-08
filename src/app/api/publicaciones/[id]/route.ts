@@ -49,7 +49,7 @@ export async function PUT(
 
     // 3. Extraer datos a actualizar
     const body = await request.json();
-    const { titulo, descripcion, precio, estado, imagen, ubicacion } = body;
+    const { titulo, descripcion, precio, estado, imagen, ubicacion, id_categoria } = body;
 
     // Validación básica: Si envían título, no puede estar vacío
     if (titulo !== undefined && (typeof titulo !== 'string' || titulo.trim() === '')) {
@@ -67,6 +67,7 @@ export async function PUT(
     if (estado !== undefined) updateData.estado = estado.trim();
     if (imagen !== undefined) updateData.imagen = imagen?.trim() || null;
     if (ubicacion !== undefined) updateData.ubicacion = ubicacion?.trim() || null;
+    if (id_categoria !== undefined) updateData.id_categoria = id_categoria ? parseInt(id_categoria) : null;
     
     // Si no hay nada que actualizar
     if (Object.keys(updateData).length === 0) {
@@ -83,7 +84,7 @@ export async function PUT(
       .from('publicacion')
       .update(updateData)
       .eq('id_publicacion', id)
-      .select()
+      .select('*, categorias(nombre)')
       .single();
 
     if (error) {
