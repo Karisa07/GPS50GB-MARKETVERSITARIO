@@ -46,6 +46,10 @@ export default function FeedMarketplace() {
   const [isPriceDropdownOpen, setIsPriceDropdownOpen] = useState(false);
   const [likedItems, setLikedItems] = useState<{ [key: string]: boolean }>({});
 
+  const PERIODOS = ["Todo el periodo", "Últimas 24 horas", "Última semana", "Último mes"];
+  const [activePeriod, setActivePeriod] = useState("Todo el periodo");
+  const [isPeriodOpen, setIsPeriodOpen] = useState(false);
+
   // Estado del combobox de categorías
   const [isComboboxOpen, setIsComboboxOpen] = useState(false);
   const [comboboxSearch, setComboboxSearch] = useState("");
@@ -156,10 +160,26 @@ export default function FeedMarketplace() {
 
   const currentPriceRange = RANGOS_PRECIO[activePriceRange];
 
-  // El filtro de precio sigue siendo client-side (datos ya en memoria)
+  // Filtros client-side (Precio, Categoría y Tiempo)
   const filteredProducts = productos.filter(p => {
+    // 1. Precio
     const matchPrice = p.precio >= currentPriceRange.min && p.precio <= currentPriceRange.max;
-    return matchPrice;
+    
+    // 2. Categoría
+    const matchCategory = activeCategory === "Todas las categorías" || p.categorias?.nombre === activeCategory;
+
+    // 3. Periodo
+    const matchPeriod = (() => {
+      if (activePeriod === "Todo el periodo") return true;
+      const pubDate = new Date(p.created_at);
+      const diffDays = (new Date().getTime() - pubDate.getTime()) / (1000 * 3600 * 24);
+      if (activePeriod === "Últimas 24 horas") return diffDays <= 1;
+      if (activePeriod === "Última semana") return diffDays <= 7;
+      if (activePeriod === "Último mes") return diffDays <= 30;
+      return true;
+    })();
+
+    return matchPrice && matchCategory && matchPeriod;
   });
 
   const isAdmin = userProfile?.rol === 'admin' || userProfile?.rol === 'superadmin';
@@ -326,10 +346,38 @@ export default function FeedMarketplace() {
                   </AnimatePresence>
                 </div>
 
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-                  <Filter className="w-3.5 h-3.5" />
-                  <span>Recientes</span>
-                </button>
+                {/* Filtro Período (antes Recientes) */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsPeriodOpen(!isPeriodOpen)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <Filter className="w-3.5 h-3.5" />
+                    <span>{activePeriod}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                  <AnimatePresence>
+                    {isPeriodOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1"
+                      >
+                        {PERIODOS.map((period) => (
+                          <div 
+                            key={period}
+                            onClick={() => { setActivePeriod(period); setIsPeriodOpen(false); }}
+                            className={`px-4 py-2 text-[13px] cursor-pointer transition-colors ${activePeriod === period ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            {period}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
 
