@@ -145,9 +145,15 @@ export default function GestionPublicaciones() {
   const filteredData = productos.filter(pub => {
     const isMine = pub.id_usuario === userAuth?.id;
     const matchTab = activeTab === "Global (Admin)" ? true : isMine;
-    const matchSearch = pub.titulo.toLowerCase().includes(searchQuery.toLowerCase()) || String(pub.id_publicacion).toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCategory = activeCategory === "Todas las categorías" || true; // temporal hasta extraer categorias
-    return matchTab && matchSearch && matchCategory;
+    const q = searchQuery.toLowerCase();
+    const matchSearch = !q ||
+      pub.titulo?.toLowerCase().includes(q) ||
+      pub.descripcion?.toLowerCase().includes(q) ||
+      pub.ubicacion?.toLowerCase().includes(q) ||
+      String(pub.id_publicacion).includes(q) ||
+      pub.perfil?.nombres?.toLowerCase().includes(q) ||
+      pub.perfil?.apellidos?.toLowerCase().includes(q);
+    return matchTab && matchSearch;
   });
 
   return (
