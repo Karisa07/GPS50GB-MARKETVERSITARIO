@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { User, Mail, Lock, CreditCard } from "lucide-react";
+import { User, Mail, Lock, CreditCard, Eye, EyeOff } from "lucide-react";
 import { Particles } from "@/components/ui/particles";
 import { createClient } from "@/lib/supabase/client";
 
@@ -15,6 +15,7 @@ export default function AuthSwitch() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // Formularios de Registro
   const [nombreCompleto, setNombreCompleto] = useState("");
@@ -24,6 +25,7 @@ export default function AuthSwitch() {
   const [regPassword, setRegPassword] = useState("");
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
 
   useEffect(() => {
     // Interceptar parámetros por URL para cargar estado
@@ -527,15 +529,34 @@ export default function AuthSwitch() {
                   required
                 />
               </div>
-              <div className="input-field">
+              <div className="input-field" style={{ position: 'relative' }}>
                 <i><Lock size={20} /></i>
                 <input 
-                  type="password" 
+                  type={showLoginPassword ? "text" : "password"} 
                   placeholder="Contraseña" 
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
+                  style={{ paddingRight: '40px' }}
                   required
                 />
+                <button 
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '15px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#9ca3af',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               <div style={{ width: '100%', maxWidth: '380px', textAlign: 'center', marginTop: '10px' }}>
                 <Link href="/auth/recover" style={{ fontSize: '0.85rem', color: '#534AB7', fontWeight: 600, textDecoration: 'none' }}>
@@ -603,15 +624,34 @@ export default function AuthSwitch() {
                 />
               </div>
               
-              <div className="input-field">
+              <div className="input-field" style={{ position: 'relative' }}>
                 <i><Lock size={20} /></i>
                 <input 
-                  type="password" 
+                  type={showRegPassword ? "text" : "password"} 
                   placeholder="Contraseña" 
                   value={regPassword}
                   onChange={(e) => setRegPassword(e.target.value)}
+                  style={{ paddingRight: '40px' }}
                   required
                 />
+                <button 
+                  type="button"
+                  onClick={() => setShowRegPassword(!showRegPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '15px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#9ca3af',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {showRegPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
 
               <button type="submit" className="btn" style={{ margin: '10px 0' }} disabled={regLoading}>

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const CATEGORIAS = ["Todas las categorías", "Tecnología", "Libros", "Útiles", "Ropa", "Servicios Estudiantiles", "Otros"];
 export default function GestionPublicaciones() {
@@ -19,7 +20,12 @@ export default function GestionPublicaciones() {
   const [activeCategory, setActiveCategory] = useState("Todas las categorías");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
+  const PERIODOS = ["Todo el periodo", "Últimas 24 horas", "Última semana", "Último mes"];
+  const [activePeriod, setActivePeriod] = useState("Todo el periodo");
+  const [isPeriodOpen, setIsPeriodOpen] = useState(false);
+
   const [productos, setProductos] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userAuth, setUserAuth] = useState<any>(null);
@@ -30,7 +36,7 @@ export default function GestionPublicaciones() {
 
   // Estado modal editar
   const [editTarget, setEditTarget] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ titulo: '', precio: '', ubicacion: '', descripcion: '', estado: '' });
+  const [editForm, setEditForm] = useState({ titulo: '', precio: '', ubicacion: '', descripcion: '', estado: '', id_categoria: '' });
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState('');
 
@@ -48,13 +54,28 @@ export default function GestionPublicaciones() {
           .eq('id', user.id)
           .single();
         setUserProfile(profile);
+        
+        if (profile?.estado === 'inactivo') {
+          await supabase.auth.signOut();
+          router.push('/auth/login?error=account_disabled');
+          return;
+        }
       }
 
       try {
-        const res = await fetch('/api/publicaciones?estado=todos');
-        if (res.ok) {
-          const json = await res.json();
+        const [resPubs, resCats] = await Promise.all([
+          fetch('/api/publicaciones?estado=todos'),
+          fetch('/api/categorias')
+        ]);
+        
+        if (resPubs.ok) {
+          const json = await resPubs.json();
           setProductos(json.data || []);
+        }
+        
+        if (resCats.ok) {
+          const jsonCats = await resCats.json();
+          setCategorias(jsonCats.data || []);
         }
       } catch (err) {
         console.error("Error fetching products:", err);
@@ -78,6 +99,7 @@ export default function GestionPublicaciones() {
       ubicacion: pub.ubicacion || '',
       descripcion: pub.descripcion || '',
       estado: pub.estado || 'activo',
+      id_categoria: pub.id_categoria ? String(pub.id_categoria) : '',
     });
     setEditError('');
   };
@@ -96,6 +118,7 @@ export default function GestionPublicaciones() {
           ubicacion: editForm.ubicacion,
           descripcion: editForm.descripcion,
           estado: editForm.estado,
+          id_categoria: editForm.id_categoria,
         }),
       });
       const json = await res.json();
@@ -145,9 +168,32 @@ export default function GestionPublicaciones() {
   const filteredData = productos.filter(pub => {
     const isMine = pub.id_usuario === userAuth?.id;
     const matchTab = activeTab === "Global (Admin)" ? true : isMine;
-    const matchSearch = pub.titulo.toLowerCase().includes(searchQuery.toLowerCase()) || String(pub.id_publicacion).toLowerCase().includes(searchQuery.toLowerCase());
-    const matchCategory = activeCategory === "Todas las categorías" || true; // temporal hasta extraer categorias
-    return matchTab && matchSearch && matchCategory;
+    
+    // Filtro por búsqueda
+    const q = searchQuery.toLowerCase();
+    const matchSearch = !q ||
+      pub.titulo?.toLowerCase().includes(q) ||
+      pub.descripcion?.toLowerCase().includes(q) ||
+      pub.ubicacion?.toLowerCase().includes(q) ||
+      String(pub.id_publicacion).includes(q) ||
+      pub.perfil?.nombres?.toLowerCase().includes(q) ||
+      pub.perfil?.apellidos?.toLowerCase().includes(q);
+
+    // Filtro por categoría
+    const matchCategory = activeCategory === "Todas las categorías" || pub.categorias?.nombre === activeCategory;
+
+    // Filtro por periodo
+    const matchPeriod = (() => {
+      if (activePeriod === "Todo el periodo") return true;
+      const pubDate = new Date(pub.created_at);
+      const diffDays = (new Date().getTime() - pubDate.getTime()) / (1000 * 3600 * 24);
+      if (activePeriod === "Últimas 24 horas") return diffDays <= 1;
+      if (activePeriod === "Última semana") return diffDays <= 7;
+      if (activePeriod === "Último mes") return diffDays <= 30;
+      return true;
+    })();
+
+    return matchTab && matchSearch && matchCategory && matchPeriod;
   });
 
   return (
@@ -172,17 +218,25 @@ export default function GestionPublicaciones() {
           <div className="px-5 py-6">
             <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
             <nav className="space-y-1.5">
-              {!isAdmin && (
-                <a href="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+              {userProfile && !isAdmin && (
+                <Link href="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
                   <LayoutDashboard className="w-4 h-4" />
                   <span>Explorar Feed</span>
-                </a>
+                </Link>
               )}
-              <a href="/publicaciones" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
-                <Package className="w-4 h-4" />
-                <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
-              </a>
-              {!isAdmin && (
+              {userProfile && (
+                <Link href="/publicaciones" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
+                  <Package className="w-4 h-4" />
+                  <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
+                </Link>
+              )}
+              {userProfile && isAdmin && (
+                <Link href="/usuarios" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  <span>Usuarios</span>
+                </Link>
+              )}
+              {userProfile && !isAdmin && (
                 <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
                   <Heart className="w-4 h-4" />
                   <span>Guardados</span>
@@ -211,47 +265,34 @@ export default function GestionPublicaciones() {
       {/* 2. CONTENIDO PRINCIPAL */}
       <main className="flex-1 flex flex-col min-w-0">
         
-        {/* Topbar: Buscador, Tabs y Perfil (Consistente con page.tsx) */}
+        {/* Topbar: Buscador y Perfil (Consistente con page.tsx) */}
         <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
           
-          <div className="flex items-center gap-8 h-full">
-            {/* Barra de Búsqueda Prominente */}
-            <div className="hidden md:block w-64 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Buscar publicación..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-11 pl-11 pr-4 bg-slate-100/70 border-transparent rounded-full focus:bg-white focus:border-[#534AB7]/30 focus:ring-2 focus:ring-[#534AB7]/10 transition-all text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
-              />
-            </div>
-
-            {/* Tabs de Navegación inspirados en la referencia */}
-            <div className="flex items-center gap-6 h-full pt-2">
-              {!isAdmin && (
-                <button 
-                  onClick={() => setActiveTab("Mis Publicaciones")}
-                  className={`h-full relative text-[14px] font-bold transition-colors ${activeTab === "Mis Publicaciones" ? "text-[#534AB7]" : "text-slate-400 hover:text-slate-600"}`}
+          {/* Barra de Búsqueda Prominente */}
+          <div className="flex-1 max-w-2xl relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Buscar por título, ID, autor, descripción..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-11 pl-11 pr-10 bg-slate-100/70 border-transparent rounded-full focus:bg-white focus:border-[#534AB7]/30 focus:ring-2 focus:ring-[#534AB7]/10 transition-all text-[14px] text-slate-700 outline-none placeholder:text-slate-400"
+            />
+            {/* Botón limpiar búsqueda */}
+            <AnimatePresence>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-300 hover:bg-slate-400 flex items-center justify-center text-white transition-colors"
                 >
-                  Mis Publicaciones
-                  {activeTab === "Mis Publicaciones" && (
-                    <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#534AB7] rounded-t-full" />
-                  )}
-                </button>
+                  <span className="text-[10px] font-bold leading-none">✕</span>
+                </motion.button>
               )}
-              {isAdmin && (
-                <button 
-                  onClick={() => setActiveTab("Global (Admin)")}
-                  className={`h-full relative text-[14px] font-bold transition-colors ${activeTab === "Global (Admin)" ? "text-[#534AB7]" : "text-slate-400 hover:text-slate-600"}`}
-                >
-                  Todas las Publicaciones
-                  {activeTab === "Global (Admin)" && (
-                    <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#534AB7] rounded-t-full" />
-                  )}
-                </button>
-              )}
-            </div>
+            </AnimatePresence>
           </div>
 
           {/* User Widgets (Right) - IDÉNTICO AL FEED */}
@@ -262,7 +303,7 @@ export default function GestionPublicaciones() {
             </button>
             <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
             <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border border-white shadow-sm uppercase">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border-2 border-white shadow-sm uppercase">
                 {userProfile?.nombres?.charAt(0) || userAuth?.email?.charAt(0) || "U"}
               </div>
               <div className="hidden sm:block">
@@ -318,7 +359,7 @@ export default function GestionPublicaciones() {
                         exit={{ opacity: 0, y: -5, scale: 0.95 }}
                         className="absolute right-0 top-12 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
                       >
-                        {CATEGORIAS.map((cat) => (
+                        {["Todas las categorías", ...categorias.map(c => c.nombre)].map((cat) => (
                           <div 
                             key={cat}
                             onClick={() => { setActiveCategory(cat); setIsCategoryOpen(false); }}
@@ -334,10 +375,36 @@ export default function GestionPublicaciones() {
                 </div>
 
                 {/* Filtro Período border-radius xl */}
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm">
-                  <span>Todo el periodo</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsPeriodOpen(!isPeriodOpen)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <span>{activePeriod}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                  <AnimatePresence>
+                    {isPeriodOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                        className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
+                      >
+                        {PERIODOS.map((period) => (
+                          <div 
+                            key={period}
+                            onClick={() => { setActivePeriod(period); setIsPeriodOpen(false); }}
+                            className={`px-4 py-2.5 text-[13px] font-medium cursor-pointer transition-colors flex items-center justify-between ${activePeriod === period ? 'bg-[#F8F7FF] text-[#534AB7]' : 'text-slate-600 hover:bg-slate-50'}`}
+                          >
+                            {period}
+                            {activePeriod === period && <Check className="w-3.5 h-3.5" />}
+                          </div>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
 
@@ -375,7 +442,9 @@ export default function GestionPublicaciones() {
                     {/* Título y Autor/Categoría */}
                     <div className="flex-1 min-w-[200px]">
                       <p className="text-[14px] font-bold text-slate-800 truncate group-hover:text-[#534AB7] transition-colors">{pub.titulo}</p>
-                      <p className="text-[12px] text-slate-500 font-medium">{activeTab === "Global (Admin)" ? `Por ${pub.perfil?.nombres} ${pub.perfil?.apellidos}` : "Varios"}</p>
+                      <p className="text-[12px] text-slate-500 font-medium">
+                        {activeTab === "Global (Admin)" ? `Por ${pub.perfil?.nombres} ${pub.perfil?.apellidos} • ${pub.categorias?.nombre || 'Sin categoría'}` : (pub.categorias?.nombre || "Sin categoría")}
+                      </p>
                     </div>
 
                     {/* Precio */}
@@ -594,6 +663,23 @@ export default function GestionPublicaciones() {
                     className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all"
                     placeholder="Ej: Bloque D, Entrada Principal"
                   />
+                </div>
+
+                {/* Categoría */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Categoría</label>
+                  <select
+                    value={editForm.id_categoria}
+                    onChange={e => setEditForm(p => ({ ...p, id_categoria: e.target.value }))}
+                    className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-700 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all cursor-pointer"
+                  >
+                    <option value="">Selecciona una categoría</option>
+                    {categorias.map(cat => (
+                      <option key={cat.id_categoria} value={cat.id_categoria}>
+                        {cat.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Estado */}

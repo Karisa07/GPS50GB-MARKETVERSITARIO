@@ -74,21 +74,35 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     
     // Filtros opcionales
-    const estado = searchParams.get('estado') || 'activo';
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const estado      = searchParams.get('estado') || 'activo';
+    const limit       = parseInt(searchParams.get('limit') || '50');
+    const q           = searchParams.get('q')?.trim() || '';           // búsqueda de texto
+    const categoria   = searchParams.get('id_categoria') || '';        // filtro de categoría
 
-    // Consultar la tabla publicacion haciendo JOIN con profiles para traer los datos del vendedor
+    // Consultar la tabla publicacion haciendo JOIN con profiles y categorias
     let query = supabase
       .from('publicacion')
       .select(`
         *,
-        perfil:profiles(nombres, apellidos, programa_academico, telefono)
+        perfil:profiles(nombres, apellidos, programa_academico, telefono),
+        categorias(nombre)
       `)
       .order('created_at', { ascending: false })
       .limit(limit);
 
+    // Filtro de estado
     if (estado !== 'todos') {
       query = query.eq('estado', estado);
+    }
+
+    // Búsqueda full-text: título o descripción contienen el texto
+    if (q) {
+      query = query.or(`titulo.ilike.%${q}%,descripcion.ilike.%${q}%,ubicacion.ilike.%${q}%`);
+    }
+
+    // Filtro por categoría
+    if (categoria) {
+      query = query.eq('id_categoria', parseInt(categoria));
     }
 
     const { data, error } = await query;
