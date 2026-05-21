@@ -45,11 +45,11 @@ export async function GET(request: Request) {
     let query = supabase.from('profiles').select('*');
 
     if (rol === 'admin') {
-      // admin solo ve estudiantes
-      query = query.eq('rol', 'estudiante');
+      // admin ve estudiantes y tutores
+      query = query.in('rol', ['estudiante', 'tutor']);
     } else if (rol === 'superadmin') {
-      // superadmin ve estudiantes y admins (opcionalmente superadmins también, pero usualmente solo los de menor o igual rango, omitimos superadmins para que no se editen entre ellos o los incluimos)
-      query = query.in('rol', ['estudiante', 'admin']);
+      // superadmin ve estudiantes, tutores y admins
+      query = query.in('rol', ['estudiante', 'tutor', 'admin']);
     }
 
     const { data: usuarios, error: usersError } = await query.order('created_at', { ascending: false });

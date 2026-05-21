@@ -33,7 +33,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         return NextResponse.json({ error: 'No tienes permisos para modificar a este usuario' }, { status: 403 });
       }
       // y tampoco puede promover a admin o superadmin
-      if (body.rol && body.rol !== 'estudiante') {
+      if (body.rol && body.rol !== 'estudiante' && body.rol !== 'tutor') {
         return NextResponse.json({ error: 'No puedes asignar este rol' }, { status: 403 });
       }
     }

@@ -357,7 +357,7 @@ export default function GestionUsuarios() {
                         exit={{ opacity: 0, y: -5, scale: 0.95 }}
                         className="absolute right-0 top-12 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
                       >
-                        {["Todos los roles", "Estudiante", "Admin", "Superadmin"].map((rol) => (
+                        {["Todos los roles", "Estudiante", "Tutor", "Admin", "Superadmin"].map((rol) => (
                           <div 
                             key={rol}
                             onClick={() => { setActiveRol(rol); setIsRolOpen(false); }}
@@ -591,12 +591,15 @@ export default function GestionUsuarios() {
                     </select>
                   </div>
                 </div>
-                {userProfile?.rol === 'superadmin' && (
+                {(userProfile?.rol === 'superadmin' || userProfile?.rol === 'admin') && (
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rol de Sistema</label>
                     <select value={formData.rol} onChange={e => setFormData({...formData, rol: e.target.value})} className="w-full h-11 px-4 rounded-xl border border-slate-200 bg-white text-[14px] text-slate-800 font-medium focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all appearance-none">
                       <option value="estudiante">Estudiante</option>
-                      <option value="admin">Administrador</option>
+                      <option value="tutor">Tutor</option>
+                      {userProfile?.rol === 'superadmin' && (
+                        <option value="admin">Administrador</option>
+                      )}
                     </select>
                   </div>
                 )}
