@@ -181,3 +181,59 @@ Content-Type: application/json
 
 ###
 
+# ================================================================
+# SOLICITUDES DE TUTORÍA
+# ================================================================
+
+### Crear una solicitud de tutoría (requiere estar autenticado)
+POST {{baseUrl}}/api/solicitudes
+Content-Type: application/json
+
+{
+  "id_tutoria": 1,
+  "mensaje": "Hola tutor, me gustaría tomar esta asesoría para repasar los temas de cálculo de cara al examen final."
+}
+
+###
+
+### Listar mis solicitudes de tutoría enviadas (estudiante)
+GET {{baseUrl}}/api/solicitudes?tipo=enviadas
+Content-Type: application/json
+
+###
+
+### Listar solicitudes de tutoría recibidas para mis tutorías (tutor)
+GET {{baseUrl}}/api/solicitudes?tipo=recibidas
+Content-Type: application/json
+
+###
+
+### Listar todas las solicitudes (remitente y destinatario combinados)
+GET {{baseUrl}}/api/solicitudes
+Content-Type: application/json
+
+###
+
+### Obtener el detalle de una solicitud de tutoría específica
+GET {{baseUrl}}/api/solicitudes/1
+Content-Type: application/json
+
+###
+
+### Gestionar una solicitud de tutoría (Aceptar / Rechazar - solo el tutor asignado o admin)
+PUT {{baseUrl}}/api/solicitudes/1
+Content-Type: application/json
+
+{
+  "estado": "aceptada"
+}
+
+###
+
+### Cancelar o eliminar una solicitud de tutoría (solo el remitente o admin)
+DELETE {{baseUrl}}/api/solicitudes/1
+Content-Type: application/json
+
+###
+
+
