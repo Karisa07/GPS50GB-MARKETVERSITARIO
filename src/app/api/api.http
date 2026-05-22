@@ -127,3 +127,57 @@ GET {{baseUrl}}/api/publicaciones/1
 Content-Type: application/json
 
 ###
+
+# ================================================================
+# TUTORIAS
+# ================================================================
+
+### Crear una tutoría (requiere estar autenticado y ser tutor/admin/superadmin)
+POST {{baseUrl}}/api/tutorias
+Content-Type: application/json
+
+{
+  "titulo": "Asesoría Completa de Programación Web con Next.js",
+  "descripcion": "Clases para resolver dudas del frontend o backend, arquitectura App Router y middleware.",
+  "asignatura": "Programación Web",
+  "nivel": "Avanzado",
+  "precio": 35000
+}
+
+###
+
+### Listar todas las tutorías (No requiere autenticación)
+GET {{baseUrl}}/api/tutorias
+Content-Type: application/json
+
+###
+
+### Listar tutorías con filtros (ejemplo: buscar "Next.js")
+GET {{baseUrl}}/api/tutorias?q=Next.js&limit=5
+Content-Type: application/json
+
+###
+
+### Obtener el detalle de una tutoría específica (No requiere autenticación)
+GET {{baseUrl}}/api/tutorias/1
+Content-Type: application/json
+
+###
+
+### Editar una tutoría (requiere estar autenticado como el dueño de la tutoría o admin)
+PUT {{baseUrl}}/api/tutorias/1
+Content-Type: application/json
+
+{
+  "titulo": "Asesoría Completa de Programación Web con Next.js (Actualizada)",
+  "precio": 38000
+}
+
+###
+
+### Eliminar una tutoría (requiere estar autenticado como el dueño de la tutoría o admin)
+DELETE {{baseUrl}}/api/tutorias/1
+Content-Type: application/json
+
+###
+
