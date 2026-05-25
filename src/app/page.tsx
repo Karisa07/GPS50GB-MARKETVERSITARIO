@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, Bell, LayoutDashboard, Package, 
   Settings, LogOut, ChevronDown, MapPin, 
-  Heart, Filter, Sparkles, Check, Loader2
+  Heart, Filter, Sparkles, Check, Loader2,
+  User, BookOpen, Clock, GraduationCap
 } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -37,6 +38,8 @@ export default function FeedMarketplace() {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
+  const [tutorias, setTutorias] = useState<any[]>([]);
+  const [activeFeedTab, setActiveFeedTab] = useState<'productos' | 'tutorias'>('productos');
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userAuth, setUserAuth] = useState<any>(null);
@@ -81,9 +84,10 @@ export default function FeedMarketplace() {
       }
 
       try {
-        const [resPubs, resCats] = await Promise.all([
+        const [resPubs, resCats, resTuts] = await Promise.all([
           fetch('/api/publicaciones?estado=activo'),
-          fetch('/api/categorias')
+          fetch('/api/categorias'),
+          fetch('/api/tutorias')
         ]);
         
         if (resPubs.ok) {
@@ -94,6 +98,11 @@ export default function FeedMarketplace() {
         if (resCats.ok) {
           const jsonCats = await resCats.json();
           setCategorias(jsonCats.data || []);
+        }
+
+        if (resTuts.ok) {
+          const jsonTuts = await resTuts.json();
+          setTutorias(jsonTuts.data || []);
         }
       } catch (err) {
         console.error("Error fetching products:", err);
@@ -115,10 +124,18 @@ export default function FeedMarketplace() {
       const reload = async () => {
         setIsSearching(true);
         try {
-          const res = await fetch('/api/publicaciones?estado=activo');
-          if (res.ok) {
-            const json = await res.json();
-            setProductos(json.data || []);
+          if (activeFeedTab === 'productos') {
+            const res = await fetch('/api/publicaciones?estado=activo');
+            if (res.ok) {
+              const json = await res.json();
+              setProductos(json.data || []);
+            }
+          } else {
+            const res = await fetch('/api/tutorias');
+            if (res.ok) {
+              const json = await res.json();
+              setTutorias(json.data || []);
+            }
           }
         } finally {
           setIsSearching(false);
@@ -132,11 +149,20 @@ export default function FeedMarketplace() {
     setIsSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({ estado: 'activo', q: trimmed });
-        const res = await fetch(`/api/publicaciones?${params.toString()}`);
-        if (res.ok) {
-          const json = await res.json();
-          setProductos(json.data || []);
+        const params = new URLSearchParams({ q: trimmed });
+        if (activeFeedTab === 'productos') {
+          params.append('estado', 'activo');
+          const res = await fetch(`/api/publicaciones?${params.toString()}`);
+          if (res.ok) {
+            const json = await res.json();
+            setProductos(json.data || []);
+          }
+        } else {
+          const res = await fetch(`/api/tutorias?${params.toString()}`);
+          if (res.ok) {
+            const json = await res.json();
+            setTutorias(json.data || []);
+          }
         }
       } finally {
         setIsSearching(false);
@@ -144,8 +170,7 @@ export default function FeedMarketplace() {
     }, 400);
 
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
+  }, [searchQuery, activeFeedTab]);
 
 
 
@@ -183,6 +208,23 @@ export default function FeedMarketplace() {
     return matchPrice && matchCategory && matchPeriod;
   });
 
+  const filteredTutorias = tutorias.filter(t => {
+    const price = Number(t.precio) || 0;
+    const matchPrice = price >= currentPriceRange.min && price <= currentPriceRange.max;
+
+    const matchPeriod = (() => {
+      if (activePeriod === "Todo el periodo") return true;
+      const pubDate = new Date(t.created_at);
+      const diffDays = (new Date().getTime() - pubDate.getTime()) / (1000 * 3600 * 24);
+      if (activePeriod === "Últimas 24 horas") return diffDays <= 1;
+      if (activePeriod === "Última semana") return diffDays <= 7;
+      if (activePeriod === "Último mes") return diffDays <= 30;
+      return true;
+    })();
+
+    return matchPrice && matchPeriod;
+  });
+
   const isAdmin = userProfile?.rol === 'admin' || userProfile?.rol === 'superadmin';
 
   return (
@@ -218,6 +260,12 @@ export default function FeedMarketplace() {
                 <Link href="/publicaciones" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${isAdmin ? 'bg-[#F8F7FF] text-[#534AB7]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
                   <Package className="w-4 h-4" />
                   <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
+                </Link>
+              )}
+              {userProfile && !isAdmin && (
+                <Link href={`/usuarios/${userAuth?.id}`} className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
+                  <User className="w-4 h-4" strokeWidth={2} />
+                  <span>Mi Perfil / Tutorías</span>
                 </Link>
               )}
               {userProfile && isAdmin && (
@@ -315,10 +363,26 @@ export default function FeedMarketplace() {
           
           {/* Cabecera y Filtros */}
           <div className="mb-8">
-            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4 mb-5">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Descubre productos</h2>
-                <p className="text-[14px] text-slate-500 mt-1">Encuentra lo que necesitas dentro del campus universitario.</p>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-6">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+                  {activeFeedTab === 'productos' ? 'Descubre Productos' : 'Explora Tutorías Académicas'}
+                </h2>
+                {/* Selector de Feed (Productos / Tutorías) */}
+                <div className="flex bg-slate-100 p-1 rounded-2xl w-fit border border-slate-200/50">
+                  <button 
+                    onClick={() => setActiveFeedTab('productos')}
+                    className={`px-5 py-2 rounded-xl text-[13px] font-bold transition-all ${activeFeedTab === 'productos' ? 'bg-white text-[#534AB7] shadow-sm' : 'text-slate-500 hover:text-slate-850'}`}
+                  >
+                    Productos
+                  </button>
+                  <button 
+                    onClick={() => setActiveFeedTab('tutorias')}
+                    className={`px-5 py-2 rounded-xl text-[13px] font-bold transition-all ${activeFeedTab === 'tutorias' ? 'bg-white text-[#534AB7] shadow-sm' : 'text-slate-500 hover:text-slate-850'}`}
+                  >
+                    Tutorías
+                  </button>
+                </div>
               </div>
 
               {/* Filtros Secundarios (Precio y Orden) */}
@@ -390,43 +454,45 @@ export default function FeedMarketplace() {
               </div>
             </div>
 
-            {/* Filtro de Categoría (Dropdown Consistente) */}
-            <div className="relative w-full sm:w-auto">
-              <button 
-                onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm w-full sm:w-64 justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <Filter className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="truncate">{activeCategory}</span>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              </button>
-              <AnimatePresence>
-                {isCategoryOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -5, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -5, scale: 0.95 }}
-                    className="absolute left-0 top-12 w-full sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
-                  >
-                    {["Todas las categorías", ...categorias.map(c => c.nombre)].map((cat) => (
-                      <div 
-                        key={cat}
-                        onClick={() => { setActiveCategory(cat); setIsCategoryOpen(false); }}
-                        className={`px-4 py-2.5 text-[13px] font-medium cursor-pointer transition-colors flex items-center justify-between ${activeCategory === cat ? 'bg-[#F8F7FF] text-[#534AB7]' : 'text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        <span className="truncate pr-2">{cat}</span>
-                        {activeCategory === cat && <Check className="w-3.5 h-3.5 shrink-0" />}
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {/* Filtro de Categoría (Dropdown Consistente) - Solo para Productos */}
+            {activeFeedTab === 'productos' && (
+              <div className="relative w-full sm:w-auto">
+                <button 
+                  onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm w-full sm:w-64 justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="truncate">{activeCategory}</span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </button>
+                <AnimatePresence>
+                  {isCategoryOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                      className="absolute left-0 top-12 w-full sm:w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 overflow-hidden"
+                    >
+                      {["Todas las categorías", ...categorias.map(c => c.nombre)].map((cat) => (
+                        <div 
+                          key={cat}
+                          onClick={() => { setActiveCategory(cat); setIsCategoryOpen(false); }}
+                          className={`px-4 py-2.5 text-[13px] font-medium cursor-pointer transition-colors flex items-center justify-between ${activeCategory === cat ? 'bg-[#F8F7FF] text-[#534AB7]' : 'text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          <span className="truncate pr-2">{cat}</span>
+                          {activeCategory === cat && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
-          {/* Grid de Productos */}
+          {/* Grid de Productos o Tutorías */}
           <motion.div 
             variants={containerVariants}
             initial="hidden"
@@ -437,25 +503,26 @@ export default function FeedMarketplace() {
               {loading ? (
                 <div className="col-span-full py-20 flex flex-col items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-[#534AB7] mb-4" />
-                  <p className="text-slate-500 font-medium">Cargando publicaciones...</p>
+                  <p className="text-slate-500 font-medium">Cargando contenido...</p>
                 </div>
               ) : isSearching ? (
                 <div className="col-span-full py-20 flex flex-col items-center justify-center">
                   <Loader2 className="w-7 h-7 animate-spin text-[#534AB7] mb-3" />
                   <p className="text-[13px] text-slate-400 font-medium">Buscando...</p>
                 </div>
-              ) : filteredProducts.map((producto) => {
-                const isLiked = likedItems[producto.id_publicacion] || false;
-                
-                return (
-                  <motion.div
-                    key={producto.id_publicacion}
-                    layout
-                    variants={cardVariants}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    whileHover={{ y: -4, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}
-                    className="bg-white rounded-2xl border border-slate-200 overflow-hidden transition-all duration-200 group flex flex-col"
-                  >
+              ) : activeFeedTab === 'productos' ? (
+                filteredProducts.map((producto) => {
+                  const isLiked = likedItems[producto.id_publicacion] || false;
+                  
+                  return (
+                    <motion.div
+                      key={`pub-${producto.id_publicacion}`}
+                      layout
+                      variants={cardVariants}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      whileHover={{ y: -4, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden transition-all duration-200 group flex flex-col"
+                    >
                     {/* Imagen del Producto (Aspect Ratio 4/3) */}
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
                       <img 
@@ -541,11 +608,63 @@ export default function FeedMarketplace() {
                     </div>
                   </motion.div>
                 );
-              })}
-            </AnimatePresence>
-          </motion.div>
+              })
+            ) : (
+              filteredTutorias.map((tutoria) => (
+                <motion.div
+                  key={`tut-${tutoria.id_tutoria}`}
+                  layout
+                  variants={cardVariants}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  whileHover={{ y: -4, boxShadow: "0 12px 32px rgba(0,0,0,0.08)" }}
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden transition-all duration-200 group flex flex-col p-5 justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#534AB7] bg-indigo-50 px-2.5 py-1 rounded-lg">
+                        {tutoria.asignatura}
+                      </span>
+                      {tutoria.nivel && (
+                        <span className="text-[11px] text-slate-400 font-semibold truncate max-w-[120px]">
+                          {tutoria.nivel}
+                        </span>
+                      )}
+                    </div>
 
-          {!loading && !isSearching && filteredProducts.length === 0 && (
+                    <Link href={`/tutorias/${tutoria.id_tutoria}`} className="block">
+                      <h3 className="text-[15px] font-bold text-slate-800 leading-snug group-hover:text-[#534AB7] transition-colors line-clamp-2">
+                        {tutoria.titulo}
+                      </h3>
+                    </Link>
+
+                    <p className="text-[12px] text-slate-500 line-clamp-3 leading-relaxed">
+                      {tutoria.descripcion || "Sin descripción adicional."}
+                    </p>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Costo por hora</p>
+                      <p className="text-xl font-black text-slate-800 tracking-tight">
+                        <span className="text-xs font-semibold text-slate-400 mr-0.5">$</span>
+                        {new Intl.NumberFormat("es-CO").format(tutoria.precio || 0)}
+                      </p>
+                    </div>
+
+                    <Link 
+                      href={`/tutorias/${tutoria.id_tutoria}`}
+                      className="px-3.5 py-2 bg-slate-50 hover:bg-[#F8F7FF] text-[#534AB7] text-[11px] font-bold rounded-xl border border-slate-150 transition-all"
+                    >
+                      Ver Tutoría
+                    </Link>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+          {!loading && !isSearching && (activeFeedTab === 'productos' ? filteredProducts.length === 0 : filteredTutorias.length === 0) && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -560,7 +679,7 @@ export default function FeedMarketplace() {
                     Sin resultados para &ldquo;{searchQuery}&rdquo;
                   </h3>
                   <p className="text-[13px] text-slate-500 mt-1 max-w-sm">
-                    Intenta con otras palabras clave o revisa los filtros de precio.
+                    Intenta con otras palabras clave o revisa los filtros.
                   </p>
                   <button
                     onClick={() => setSearchQuery("")}
@@ -571,9 +690,13 @@ export default function FeedMarketplace() {
                 </>
               ) : (
                 <>
-                  <h3 className="text-[16px] font-black text-slate-700">No hay publicaciones disponibles</h3>
+                  <h3 className="text-[16px] font-black text-slate-700">
+                    {activeFeedTab === 'productos' ? 'No hay publicaciones disponibles' : 'No hay tutorías disponibles'}
+                  </h3>
                   <p className="text-[13px] text-slate-500 mt-1 max-w-sm">
-                    Aún no hay productos en este rango de precio o categoría.
+                    {activeFeedTab === 'productos' 
+                      ? 'Aún no hay productos en este rango de precio o categoría.' 
+                      : 'Aún no hay tutorías disponibles en este rango de precio.'}
                   </p>
                 </>
               )}
