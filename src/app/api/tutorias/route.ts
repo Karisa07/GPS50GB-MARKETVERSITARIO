@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Verificar rol del usuario (debe ser tutor, admin o superadmin)
+    // 2. Verificar rol del usuario (estudiantes, tutores, admins y superadmins)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('rol')
@@ -30,9 +30,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (profile.rol !== 'tutor' && profile.rol !== 'admin' && profile.rol !== 'superadmin') {
+    if (
+      profile.rol !== 'estudiante' &&
+      profile.rol !== 'tutor' &&
+      profile.rol !== 'admin' &&
+      profile.rol !== 'superadmin'
+    ) {
       return NextResponse.json(
-        { error: 'No autorizado. Solo los usuarios con rol de tutor o administrador pueden publicar tutorías.' },
+        { error: 'No autorizado. Debes ser estudiante, tutor o administrador para publicar tutorías.' },
         { status: 403 }
       );
     }
@@ -100,6 +105,18 @@ export async function POST(request: Request) {
         { error: 'Error al crear la tutoría en la base de datos.', details: error.message },
         { status: 500 }
       );
+    }
+
+    // Si el usuario es un estudiante, lo actualizamos a rol 'tutor' automáticamente
+    if (profile.rol === 'estudiante') {
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ rol: 'tutor' })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error al actualizar rol de estudiante a tutor:', updateError);
+      }
     }
 
     // 6. Retornar éxito
