@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { expandQuery } from '@/lib/search-expander';
 
 export async function POST(request: Request) {
   try {
@@ -138,9 +139,15 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    // Búsqueda de texto
+    // Búsqueda de texto (expandida semánticamente)
     if (q) {
-      query = query.or(`titulo.ilike.%${q}%,descripcion.ilike.%${q}%,asignatura.ilike.%${q}%`);
+      const terms = await expandQuery(q);
+      if (terms.length > 0) {
+        const orClauses = terms.map(term => 
+          `titulo.ilike.%${term}%,descripcion.ilike.%${term}%,asignatura.ilike.%${term}%`
+        ).join(',');
+        query = query.or(orClauses);
+      }
     }
 
     // Filtro por asignatura

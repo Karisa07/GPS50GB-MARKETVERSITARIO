@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { expandQuery } from '@/lib/search-expander';
 
 export async function POST(request: Request) {
   try {
@@ -95,9 +96,15 @@ export async function GET(request: Request) {
       query = query.eq('estado', estado);
     }
 
-    // Búsqueda full-text: título o descripción contienen el texto
+    // Búsqueda full-text: título o descripción contienen el texto (expandido semánticamente)
     if (q) {
-      query = query.or(`titulo.ilike.%${q}%,descripcion.ilike.%${q}%,ubicacion.ilike.%${q}%`);
+      const terms = await expandQuery(q);
+      if (terms.length > 0) {
+        const orClauses = terms.map(term => 
+          `titulo.ilike.%${term}%,descripcion.ilike.%${term}%,ubicacion.ilike.%${term}%`
+        ).join(',');
+        query = query.or(orClauses);
+      }
     }
 
     // Filtro por categoría
