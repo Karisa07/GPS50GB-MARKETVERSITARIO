@@ -6,19 +6,36 @@ import {
   Search, Bell, LayoutDashboard, Package, 
   Settings, LogOut, ChevronDown, Plus, 
   Pencil, Trash2, ExternalLink, Filter,
-  Sparkles, Check, Heart, Loader2, X, AlertTriangle, Save
+  Sparkles, Check, Heart, Loader2, X, AlertTriangle, Save,
+  Zap
 } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import PagoModal from "@/components/PagoModal";
+
 const CATEGORIAS = ["Todas las categorías", "Tecnología", "Libros", "Útiles", "Ropa", "Servicios Estudiantiles", "Otros"];
 export default function GestionPublicaciones() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Mis Publicaciones");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todas las categorías");
+
+  // Estado modal de pago
+  const [selectedPubForPago, setSelectedPubForPago] = useState<any>(null);
+  const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+
+  const handlePagoSuccess = (referencia: string, destacadaHasta: string) => {
+    if (selectedPubForPago) {
+      setProductos(prev => prev.map(p =>
+        p.id_publicacion === selectedPubForPago.id_publicacion
+          ? { ...p, destacada: true, destacada_hasta: destacadaHasta }
+          : p
+      ));
+    }
+  };
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
   const PERIODOS = ["Todo el periodo", "Últimas 24 horas", "Última semana", "Último mes"];
@@ -368,6 +385,25 @@ export default function GestionPublicaciones() {
                         {pub.estado}
                       </span>
                       
+                      {/* Botón Potenciar / Badge Destacada */}
+                      {pub.destacada && pub.destacada_hasta && new Date(pub.destacada_hasta) > new Date() ? (
+                        <div className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 text-[11px] font-bold rounded-xl shadow-sm shrink-0">
+                          <Sparkles className="w-3.5 h-3.5 fill-white text-white animate-pulse" />
+                          <span>Destacada</span>
+                        </div>
+                      ) : pub.id_usuario === userAuth?.id ? (
+                        <button
+                          onClick={() => {
+                            setSelectedPubForPago(pub);
+                            setIsPagoModalOpen(true);
+                          }}
+                          className="flex items-center justify-center gap-1 px-3 py-2 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] font-bold rounded-xl transition-all shrink-0 shadow-sm shadow-amber-500/25"
+                        >
+                          <Zap className="w-3.5 h-3.5 fill-white text-white" />
+                          <span>Potenciar</span>
+                        </button>
+                      ) : null}
+
                       {/* Botón Ver Detalle (Border XL consistente) */}
                       <a 
                         href={`/publicaciones/${pub.id_publicacion}`}
@@ -634,6 +670,21 @@ export default function GestionPublicaciones() {
           </>
         )}
       </AnimatePresence>
+      
+      {/* ═══ MODAL DE PAGO PARA PUBLICACIÓN ═══ */}
+      {selectedPubForPago && (
+        <PagoModal
+          open={isPagoModalOpen}
+          onClose={() => {
+            setIsPagoModalOpen(false);
+            setSelectedPubForPago(null);
+          }}
+          tipoItem="publicacion"
+          idItem={selectedPubForPago.id_publicacion}
+          tituloItem={selectedPubForPago.titulo}
+          onSuccess={handlePagoSuccess}
+        />
+      )}
 
     </div>
   );

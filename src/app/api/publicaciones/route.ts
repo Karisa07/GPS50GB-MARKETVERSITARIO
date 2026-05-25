@@ -88,6 +88,8 @@ export async function GET(request: Request) {
         perfil:profiles(nombres, apellidos, programa_academico, telefono),
         categorias(nombre)
       `)
+      .order('destacada', { ascending: false })
+      .order('destacada_hasta', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -122,7 +124,25 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ data }, { status: 200 });
+    // Procesar destacados activos y corregir expirados
+    const now = new Date();
+    const processedData = (data || []).map(item => {
+      const isExpired = item.destacada && item.destacada_hasta && new Date(item.destacada_hasta) < now;
+      if (isExpired) {
+        return { ...item, destacada: false, destacada_hasta: null };
+      }
+      return item;
+    });
+
+    // Reordenar para asegurar que los destacados activos estén de primero
+    processedData.sort((a, b) => {
+      const aFeat = a.destacada ? 1 : 0;
+      const bFeat = b.destacada ? 1 : 0;
+      if (aFeat !== bFeat) return bFeat - aFeat;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    return NextResponse.json({ data: processedData }, { status: 200 });
 
   } catch (error: any) {
     console.error('Excepción listando publicaciones:', error);

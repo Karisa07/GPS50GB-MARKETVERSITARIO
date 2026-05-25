@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const isAdmin = profile?.rol === 'admin' || profile?.rol === 'superadmin';
     const isTutor = profile?.rol === 'tutor';
 
-    const notificaciones = [];
+    const notificaciones: any[] = [];
 
     // Si es administrador, buscar solicitudes para ser tutor
     if (isAdmin) {

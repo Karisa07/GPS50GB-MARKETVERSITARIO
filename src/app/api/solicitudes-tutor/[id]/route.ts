@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -31,7 +32,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('solicitudes_tutor')
       .update({ estado })
-      .eq('id_solicitud', params.id)
+      .eq('id_solicitud', id)
       .select()
       .single();
 

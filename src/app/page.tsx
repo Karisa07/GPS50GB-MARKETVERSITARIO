@@ -226,6 +226,16 @@ export default function FeedMarketplace() {
     return matchPrice && matchPeriod;
   });
 
+  const featuredProducts = filteredProducts.filter(p => p.destacada && p.destacada_hasta && new Date(p.destacada_hasta) > new Date());
+  const regularProducts = filteredProducts.filter(p => !(p.destacada && p.destacada_hasta && new Date(p.destacada_hasta) > new Date()));
+
+  const featuredTutorias = filteredTutorias.filter(t => t.destacada && t.destacada_hasta && new Date(t.destacada_hasta) > new Date());
+  const regularTutorias = filteredTutorias.filter(t => !(t.destacada && t.destacada_hasta && new Date(t.destacada_hasta) > new Date()));
+
+  const hasNoItems = activeFeedTab === 'productos' 
+    ? (featuredProducts.length === 0 && regularProducts.length === 0)
+    : (featuredTutorias.length === 0 && regularTutorias.length === 0);
+
   const isAdmin = userProfile?.rol === 'admin' || userProfile?.rol === 'superadmin';
 
   return (
@@ -384,6 +394,170 @@ export default function FeedMarketplace() {
             )}
           </div>
 
+          {/* ── SECCIÓN DESTACADAS (PRODUCTOS) ── */}
+          {!loading && !isSearching && activeFeedTab === 'productos' && featuredProducts.length > 0 && (
+            <div className="mb-10 animate-fade-in">
+              <div className="flex items-center gap-2 mb-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-4 py-2 rounded-2xl border border-amber-200/50 w-fit shadow-sm">
+                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
+                <h3 className="text-[14px] font-black text-amber-800 tracking-tight">Publicaciones Destacadas</h3>
+                <span className="bg-amber-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider ml-1">Premium</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+                {featuredProducts.map((producto) => {
+                  const isLiked = likedItems[producto.id_publicacion] || false;
+                  return (
+                    <motion.div
+                      key={`feat-pub-${producto.id_publicacion}`}
+                      layout
+                      variants={cardVariants}
+                      whileHover={{ y: -4, boxShadow: "0 12px 32px rgba(245, 158, 11, 0.15)" }}
+                      className="bg-white rounded-2xl border-2 border-amber-300 overflow-hidden transition-all duration-205 group flex flex-col shadow-[0_4px_20px_rgba(245,158,11,0.05)] relative"
+                    >
+                      {/* Imagen del Producto (Aspect Ratio 4/3) */}
+                      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-105">
+                        <img 
+                          src={producto.imagen || "https://images.unsplash.com/photo-1555421689-d68471e189f2?q=80&w=600&auto=format&fit=crop"} 
+                          alt={producto.titulo} 
+                          className={`w-full h-full object-cover transition-transform duration-500 ${
+                            producto.estado === "vendido" ? "grayscale opacity-60" : "group-hover:scale-105"
+                          }`}
+                        />
+                        
+                        {/* Badges de Destacado y Estado */}
+                        <div className="absolute top-3 left-3 flex gap-1.5 items-center">
+                          <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md shadow-sm flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 fill-white text-white" />
+                            Destacada
+                          </span>
+                          <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md shadow-sm border block ${
+                            producto.estado === "disponible" ? "bg-white/90 backdrop-blur-sm text-emerald-600 border-emerald-100" :
+                            producto.estado === "reservado" ? "bg-white/90 backdrop-blur-sm text-amber-600 border-amber-100" :
+                            "bg-slate-800/90 backdrop-blur-sm text-white border-transparent"
+                          }`}>
+                            {producto.estado}
+                          </span>
+                        </div>
+                        
+                        {/* Botón Favorito Flotante */}
+                        <motion.button 
+                          onClick={(e) => toggleLike(producto.id_publicacion, e)}
+                          whileTap={{ scale: 1.4 }}
+                          animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
+                          transition={{ duration: 0.3, type: "spring" }}
+                          className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white transition-colors shadow-sm z-10"
+                        >
+                          <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
+                        </motion.button>
+                      </div>
+
+                      {/* Información del Producto */}
+                      <div className="p-5 flex-1 flex flex-col">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-bold text-[#534AB7] uppercase tracking-wider bg-[#F8F7FF] px-2 py-0.5 rounded-sm">
+                            {producto.categoria || "Varios"}
+                          </span>
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {new Date(producto.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <h3 className="text-[15px] font-bold text-slate-800 leading-snug line-clamp-2 mb-3 group-hover:text-[#534AB7] transition-colors">
+                          {producto.titulo}
+                        </h3>
+                        
+                        <div className="mt-auto">
+                          <div className="border-t border-slate-105 pt-3 mt-3">
+                            <p className="text-xl font-black text-slate-800 tracking-tight">
+                              <span className="text-sm font-semibold text-slate-400 mr-1">$</span>
+                              {new Intl.NumberFormat("es-CO").format(producto.precio || 0)}
+                            </p>
+                          </div>
+
+                          {/* Footer de la Card: Vendedor y Ubicación */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-[10px] font-bold text-white uppercase shadow-sm">
+                                {producto.perfil?.nombres?.charAt(0) || "U"}
+                              </div>
+                              <span className="text-[12px] font-medium text-slate-600">{producto.perfil?.nombres} {producto.perfil?.apellidos}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-slate-400">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span className="text-[11px] font-medium truncate max-w-[80px]">{producto.ubicacion || "Campus"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              <div className="border-b border-slate-200/60 mt-10 mb-8" />
+            </div>
+          )}
+
+          {/* ── SECCIÓN DESTACADAS (TUTORÍAS) ── */}
+          {!loading && !isSearching && activeFeedTab === 'tutorias' && featuredTutorias.length > 0 && (
+            <div className="mb-10 animate-fade-in">
+              <div className="flex items-center gap-2 mb-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-4 py-2 rounded-2xl border border-amber-200/50 w-fit shadow-sm">
+                <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
+                <h3 className="text-[14px] font-black text-amber-800 tracking-tight">Tutorías Destacadas</h3>
+                <span className="bg-amber-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase tracking-wider ml-1">Premium</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+                {featuredTutorias.map((tutoria) => (
+                  <motion.div
+                    key={`feat-tut-${tutoria.id_tutoria}`}
+                    layout
+                    variants={cardVariants}
+                    whileHover={{ y: -4, boxShadow: "0 12px 32px rgba(245, 158, 11, 0.15)" }}
+                    className="bg-white rounded-2xl border-2 border-amber-300 overflow-hidden transition-all duration-200 group flex flex-col p-5 justify-between shadow-[0_4px_20px_rgba(245,158,11,0.05)] relative"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#534AB7] bg-indigo-50 px-2.5 py-1 rounded-lg">
+                          {tutoria.asignatura}
+                        </span>
+                        <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-md shadow-sm flex items-center gap-1">
+                          <Sparkles className="w-2.5 h-2.5 fill-white text-white" />
+                          Destacada
+                        </span>
+                      </div>
+
+                      <Link href={`/tutorias/${tutoria.id_tutoria}`} className="block">
+                        <h3 className="text-[15px] font-bold text-slate-800 leading-snug group-hover:text-[#534AB7] transition-colors line-clamp-2">
+                          {tutoria.titulo}
+                        </h3>
+                      </Link>
+
+                      <p className="text-[12px] text-slate-500 line-clamp-3 leading-relaxed">
+                        {tutoria.descripcion || "Sin descripción adicional."}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Costo por hora</p>
+                        <p className="text-xl font-black text-slate-800 tracking-tight">
+                          <span className="text-xs font-semibold text-slate-400 mr-0.5">$</span>
+                          {new Intl.NumberFormat("es-CO").format(tutoria.precio || 0)}
+                        </p>
+                      </div>
+
+                      <Link 
+                        href={`/tutorias/${tutoria.id_tutoria}`}
+                        className="px-3.5 py-2 bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white text-[11px] font-bold rounded-xl border border-transparent transition-all shadow-sm"
+                      >
+                        Ver Tutoría
+                      </Link>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              <div className="border-b border-slate-200/60 mt-10 mb-8" />
+            </div>
+          )}
+
           {/* Grid de Productos o Tutorías */}
           <motion.div 
             variants={containerVariants}
@@ -403,7 +577,7 @@ export default function FeedMarketplace() {
                   <p className="text-[13px] text-slate-400 font-medium">Buscando...</p>
                 </div>
               ) : activeFeedTab === 'productos' ? (
-                filteredProducts.map((producto) => {
+                regularProducts.map((producto) => {
                   const isLiked = likedItems[producto.id_publicacion] || false;
                   
                   return (
@@ -502,7 +676,7 @@ export default function FeedMarketplace() {
                 );
               })
             ) : (
-              filteredTutorias.map((tutoria) => (
+              regularTutorias.map((tutoria) => (
                 <motion.div
                   key={`tut-${tutoria.id_tutoria}`}
                   layout
@@ -556,7 +730,7 @@ export default function FeedMarketplace() {
           </AnimatePresence>
         </motion.div>
 
-          {!loading && !isSearching && (activeFeedTab === 'productos' ? filteredProducts.length === 0 : filteredTutorias.length === 0) && (
+          {!loading && !isSearching && hasNoItems && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

@@ -7,12 +7,15 @@ import {
   User, BookOpen, Inbox, Send, Phone, Mail, Plus, 
   Trash2, Check, X, Clock, Sparkles, GraduationCap, 
   CalendarDays, Bell, LayoutDashboard, Package, Heart, 
-  Settings, LogOut, ChevronDown, Loader2, AlertTriangle, Camera
+  Settings, LogOut, ChevronDown, Loader2, AlertTriangle, Camera,
+  Zap
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+import PagoModal from "@/components/PagoModal";
+
 const TABS = [
   { id: "info", label: "Información", icon: User },
   { id: "tutorias", label: "Mis Tutorías", icon: BookOpen },
@@ -24,6 +27,20 @@ export default function PerfilUsuario() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
+
+  // Estado modal de pago para tutoría
+  const [selectedTutoriaForPago, setSelectedTutoriaForPago] = useState<any>(null);
+  const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+
+  const handlePagoSuccess = (referencia: string, destacadaHasta: string) => {
+    if (selectedTutoriaForPago) {
+      setTutorias(prev => prev.map(t =>
+        t.id_tutoria === selectedTutoriaForPago.id_tutoria
+          ? { ...t, destacada: true, destacada_hasta: destacadaHasta }
+          : t
+      ));
+    }
+  };
 
   // Sesión y perfiles
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -596,22 +613,43 @@ export default function PerfilUsuario() {
 
                                       <div className="flex items-center gap-2">
                                         {isOwnProfile && (
-                                          <button
-                                            onClick={() => handleEliminarTutoria(t.id_tutoria)}
-                                            disabled={actionLoading === `delete-tutoria-${t.id_tutoria}`}
-                                            className="w-9 h-9 rounded-xl border border-slate-200 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600 text-slate-400 flex items-center justify-center transition-all"
-                                            title="Eliminar Tutoría"
-                                          >
-                                            {actionLoading === `delete-tutoria-${t.id_tutoria}` ? (
-                                              <Loader2 className="w-4 h-4 animate-spin" />
+                                          <>
+                                            {t.destacada && t.destacada_hasta && new Date(t.destacada_hasta) > new Date() ? (
+                                              <div className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-2 text-[11px] font-bold rounded-xl shadow-sm shrink-0">
+                                                <Sparkles className="w-3.5 h-3.5 fill-white text-white animate-pulse" />
+                                                <span>Destacada</span>
+                                              </div>
                                             ) : (
-                                              <Trash2 className="w-4 h-4" />
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedTutoriaForPago(t);
+                                                  setIsPagoModalOpen(true);
+                                                }}
+                                                className="flex items-center justify-center gap-1 px-3 py-2 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-500 hover:to-orange-500 text-white text-[11px] font-bold rounded-xl transition-all shrink-0 shadow-sm shadow-amber-500/25"
+                                                title="Destacar Tutoría"
+                                              >
+                                                <Zap className="w-3.5 h-3.5 fill-white text-white" />
+                                                <span>Potenciar</span>
+                                              </button>
                                             )}
-                                          </button>
+
+                                            <button
+                                              onClick={() => handleEliminarTutoria(t.id_tutoria)}
+                                              disabled={actionLoading === `delete-tutoria-${t.id_tutoria}`}
+                                              className="w-9 h-9 rounded-xl border border-slate-200 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600 text-slate-400 flex items-center justify-center transition-all shrink-0"
+                                              title="Eliminar Tutoría"
+                                            >
+                                              {actionLoading === `delete-tutoria-${t.id_tutoria}` ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                              ) : (
+                                                <Trash2 className="w-4 h-4" />
+                                              )}
+                                            </button>
+                                          </>
                                         )}
                                         <Link 
                                           href={`/tutorias/${t.id_tutoria}`}
-                                          className="px-4 py-2 bg-slate-50 hover:bg-[#F8F7FF] text-[#534AB7] text-[12px] font-bold rounded-xl border border-slate-100 hover:border-[#534AB7]/10 transition-all"
+                                          className="px-4 py-2 bg-slate-50 hover:bg-[#F8F7FF] text-[#534AB7] text-[12px] font-bold rounded-xl border border-slate-100 hover:border-[#534AB7]/10 transition-all shrink-0"
                                         >
                                           Ver Detalle
                                         </Link>
@@ -876,6 +914,21 @@ export default function PerfilUsuario() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ═══ MODAL DE PAGO PARA TUTORÍA ═══ */}
+      {selectedTutoriaForPago && (
+        <PagoModal
+          open={isPagoModalOpen}
+          onClose={() => {
+            setIsPagoModalOpen(false);
+            setSelectedTutoriaForPago(null);
+          }}
+          tipoItem="tutoria"
+          idItem={selectedTutoriaForPago.id_tutoria}
+          tituloItem={selectedTutoriaForPago.titulo}
+          onSuccess={handlePagoSuccess}
+        />
+      )}
 
     </div>
   );
