@@ -7,11 +7,12 @@ import {
   User, BookOpen, Inbox, Send, Phone, Mail, Plus, 
   Trash2, Check, X, Clock, Sparkles, GraduationCap, 
   CalendarDays, Bell, LayoutDashboard, Package, Heart, 
-  Settings, LogOut, ChevronDown, Loader2, AlertTriangle
+  Settings, LogOut, ChevronDown, Loader2, AlertTriangle, Camera
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 const TABS = [
   { id: "info", label: "Información", icon: User },
   { id: "tutorias", label: "Mis Tutorías", icon: BookOpen },
@@ -41,6 +42,14 @@ export default function PerfilUsuario() {
 
   // Perfil del usuario logueado en la cabecera general
   const [userProfile, setUserProfile] = useState<any>(null);
+
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  
+  // Solicitud para ser tutor
+  const [tutorRequest, setTutorRequest] = useState<any>(null);
+  const [showTutorModal, setShowTutorModal] = useState(false);
+  const [tutorMessage, setTutorMessage] = useState("");
+  const [sendingTutorRequest, setSendingTutorRequest] = useState(false);
 
   const isOwnProfile = currentUser?.id === id;
 
@@ -94,6 +103,15 @@ export default function PerfilUsuario() {
         if (resEnviadas.ok) {
           const json = await resEnviadas.json();
           setSolicitudesEnviadas(json.data || []);
+        }
+
+        // 4. Ver estado de solicitud de tutor
+        const resTutorReq = await fetch("/api/solicitudes-tutor");
+        if (resTutorReq.ok) {
+          const json = await resTutorReq.json();
+          if (json.data && json.data.length > 0) {
+            setTutorRequest(json.data[0]); // La más reciente
+          }
         }
       }
 
@@ -184,6 +202,74 @@ export default function PerfilUsuario() {
     }
   };
 
+  const handleSolicitarTutor = async () => {
+    if (!tutorMessage.trim()) return alert("Por favor ingresa un mensaje justificando por qué quieres ser tutor.");
+    setSendingTutorRequest(true);
+    try {
+      const res = await fetch("/api/solicitudes-tutor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mensaje: tutorMessage })
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Error al enviar la solicitud");
+      }
+      const json = await res.json();
+      setTutorRequest(json.data);
+      setShowTutorModal(false);
+      alert("Solicitud enviada exitosamente. Un administrador la revisará pronto.");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSendingTutorRequest(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingAvatar(true);
+      if (!event.target.files || event.target.files.length === 0) {
+        return;
+      }
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${id}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const supabase = createClient();
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      // Update profiles table
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('id', id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local state
+      setProfile({ ...profile, avatar_url: data.publicUrl });
+      setUserProfile({ ...userProfile, avatar_url: data.publicUrl });
+
+    } catch (error: any) {
+      alert('Error uploading avatar: ' + error.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const isAdmin = userProfile?.rol === "admin" || userProfile?.rol === "superadmin";
 
   return (
@@ -193,87 +279,17 @@ export default function PerfilUsuario() {
     >
       
       {/* ── SIDEBAR IZQUIERDA ── */}
-      <aside className="w-64 bg-white border-r border-slate-100 flex flex-col justify-between shrink-0 z-20 hidden lg:flex shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div>
-          <div className="h-20 flex items-center px-8 border-b border-slate-50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center shadow-md shadow-indigo-500/20">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-bold text-[18px] text-slate-800 tracking-tight">Market<span className="text-[#534AB7]">Versitario</span></span>
-            </div>
-          </div>
-
-          <div className="px-5 py-6">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
-            <nav className="space-y-1.5">
-              {!isAdmin && (
-                <Link href="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span>Explorar Feed</span>
-                </Link>
-              )}
-              <Link href="/publicaciones" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                <Package className="w-4 h-4" />
-                <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
-              </Link>
-              {isAdmin && (
-                <Link href="/usuarios" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                  <User className="w-4 h-4" />
-                  <span>Usuarios</span>
-                </Link>
-              )}
-            </nav>
-          </div>
-        </div>
-
-        <div className="px-5 py-6 border-t border-slate-50">
-          <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ajustes</p>
-          <nav className="space-y-1.5">
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-              <Settings className="w-4 h-4" />
-              <span>Configuración</span>
-            </a>
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors mt-2">
-              <LogOut className="w-4 h-4" />
-              <span>Cerrar Sesión</span>
-            </button>
-          </nav>
-        </div>
-      </aside>
+      <Sidebar userProfile={userProfile} userAuth={currentUser} />
 
       {/* ── CONTENIDO PRINCIPAL ── */}
       <main className="flex-1 flex flex-col min-w-0">
         
         {/* Topbar */}
-        <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
-          <h2 className="text-[16px] font-bold text-slate-800 tracking-tight">Perfil de Usuario</h2>
-
-          <div className="flex items-center gap-4">
-            <button className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
-            <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            
-            {/* Widget Usuario */}
-            <div 
-              onClick={() => userProfile && router.push(`/usuarios/${currentUser?.id}`)} 
-              className="flex items-center gap-3 cursor-pointer group"
-            >
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border-2 border-white shadow-sm uppercase">
-                {userProfile?.nombres?.charAt(0) || currentUser?.email?.charAt(0) || "U"}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-[13px] font-bold text-slate-700 group-hover:text-[#534AB7] transition-colors">
-                  {userProfile ? `${userProfile.nombres} ${userProfile.apellidos}` : "Usuario"}
-                </p>
-                <p className="text-[11px] text-slate-400 font-medium capitalize">{userProfile?.rol || "Estudiante"}</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
-            </div>
-          </div>
-        </header>
+        <Header 
+          userProfile={userProfile} 
+          userAuth={currentUser}
+          title="Perfil de Usuario"
+        />
 
         {/* Zona Scrollable */}
         <div className="flex-1 overflow-y-auto p-6 lg:p-10 scrollbar-thin">
@@ -328,8 +344,33 @@ export default function PerfilUsuario() {
                     <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
                       
                       {/* Avatar */}
-                      <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[36px] border-4 border-white shadow-xl shadow-indigo-500/10 shrink-0 uppercase">
-                        {profile.nombres?.charAt(0)}{profile.apellidos?.charAt(0)}
+                      <div className="relative group">
+                        {profile.avatar_url ? (
+                          <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white shadow-xl shadow-indigo-500/10 shrink-0">
+                            <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[36px] border-4 border-white shadow-xl shadow-indigo-500/10 shrink-0 uppercase">
+                            {profile.nombres?.charAt(0)}{profile.apellidos?.charAt(0)}
+                          </div>
+                        )}
+                        
+                        {isOwnProfile && (
+                          <label className={`absolute inset-0 flex items-center justify-center bg-black/40 text-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-4 border-transparent ${uploadingAvatar ? 'opacity-100' : ''}`}>
+                            {uploadingAvatar ? (
+                              <Loader2 className="w-6 h-6 animate-spin" />
+                            ) : (
+                              <Camera className="w-6 h-6" />
+                            )}
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={handleAvatarUpload} 
+                              disabled={uploadingAvatar}
+                            />
+                          </label>
+                        )}
                       </div>
 
                       {/* Datos Básicos */}
@@ -370,15 +411,36 @@ export default function PerfilUsuario() {
                     </div>
 
                     {/* Acciones Propietario o Contacto */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
                       {isOwnProfile ? (
-                        <Link 
-                          href="/tutorias/nueva" 
-                          className="flex items-center gap-2 px-5 py-2.5 bg-[#534AB7] hover:bg-[#43399b] text-white rounded-xl font-bold text-[13px] transition-colors shadow-sm shadow-indigo-500/20"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Ofrecer Tutoría</span>
-                        </Link>
+                        <>
+                          {profile?.rol === "tutor" ? (
+                            <Link 
+                              href="/tutorias/nueva" 
+                              className="flex items-center gap-2 px-5 py-2.5 bg-[#534AB7] hover:bg-[#43399b] text-white rounded-xl font-bold text-[13px] transition-colors shadow-sm shadow-indigo-500/20"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Ofrecer Tutoría</span>
+                            </Link>
+                          ) : profile?.rol === "estudiante" ? (
+                            tutorRequest ? (
+                              <div className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-[13px] border ${
+                                tutorRequest.estado === 'pendiente' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                tutorRequest.estado === 'rechazada' ? 'bg-rose-50 text-rose-600 border-rose-200' : ''
+                              }`}>
+                                {tutorRequest.estado === 'pendiente' ? 'Solicitud de Tutor Pendiente' : 'Solicitud de Tutor Rechazada'}
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => setShowTutorModal(true)}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-[13px] transition-colors shadow-sm"
+                              >
+                                <GraduationCap className="w-4 h-4" />
+                                <span>Solicitar ser Tutor</span>
+                              </button>
+                            )
+                          ) : null}
+                        </>
                       ) : (
                         profile.telefono && (
                           <a 
@@ -763,6 +825,58 @@ export default function PerfilUsuario() {
           </div>
         </div>
       </main>
+
+      {/* ═══ MODAL SOLICITAR SER TUTOR ═══ */}
+      <AnimatePresence>
+        {showTutorModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !sendingTutorRequest && setShowTutorModal(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 pointer-events-auto flex flex-col gap-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                    <GraduationCap className="w-6 h-6 text-[#534AB7]" />
+                  </div>
+                  <button onClick={() => setShowTutorModal(false)} className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800">Solicitar ser Tutor</h2>
+                  <p className="text-[13px] text-slate-500 mt-1">Escribe una breve justificación de por qué te gustaría ser tutor oficial en MarketVersitario.</p>
+                </div>
+                <textarea
+                  value={tutorMessage}
+                  onChange={e => setTutorMessage(e.target.value)}
+                  rows={4}
+                  placeholder="Ej: Tengo buen promedio en cálculo y programación..."
+                  className="w-full p-4 rounded-xl border border-slate-200 text-[14px] focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 resize-none transition-all"
+                />
+                <button
+                  onClick={handleSolicitarTutor}
+                  disabled={sendingTutorRequest || !tutorMessage.trim()}
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white font-bold text-[14px] transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                >
+                  {sendingTutorRequest ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {sendingTutorRequest ? 'Enviando solicitud...' : 'Enviar Solicitud'}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
