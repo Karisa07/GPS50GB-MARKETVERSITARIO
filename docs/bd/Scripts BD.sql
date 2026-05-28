@@ -70,7 +70,7 @@ CREATE TABLE Solicitudes (
     FOREIGN KEY (Intercambio) REFERENCES Intercambio(idIntercambio)
 );
 
-CREATE TABLE Valoracion (
+CREATE TABLE ValoracionPublicacion(
     idValoracion SERIAL PRIMARY KEY,
     idUsuario INT,
     idPublicacion INT,
@@ -79,6 +79,17 @@ CREATE TABLE Valoracion (
     Fecha TIMESTAMP,
     FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario),
     FOREIGN KEY (idPublicacion) REFERENCES Publicacion(idPublicacion)
+);
+
+CREATE TABLE ValoracionTutoria(
+    idValoracion SERIAL PRIMARY KEY,
+    idUsuario INT,
+    idTutoria INT,
+    Calificacion INT,
+    Comentario TEXT,
+    Fecha TIMESTAMP,
+    FOREIGN KEY (idUsuario) REFERENCES Usuario(idUsuario),
+    FOREIGN KEY (idTutoria) REFERENCES Tutoria(idTutoria)
 );
 
 CREATE TABLE Pagos (
