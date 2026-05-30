@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Package, User, 
-  Heart, Settings, LogOut, Sparkles 
+  Heart, Settings, LogOut, Sparkles,
+  MessageSquare, BarChart3, Users
 } from "lucide-react";
 
 interface SidebarProps {
@@ -20,6 +21,21 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/auth/login';
+  };
+
+  const navLink = (href: string, icon: React.ReactNode, label: string, exact = false) => {
+    const isActive = exact ? pathname === href : pathname?.startsWith(href);
+    return (
+      <Link
+        href={href}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${
+          isActive ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+        }`}
+      >
+        {icon}
+        <span>{label}</span>
+      </Link>
+    );
   };
 
   return (
@@ -39,44 +55,31 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
         <div className="px-5 py-6">
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
           <nav className="space-y-1.5">
-            {!isAdmin && (
-              <Link 
-                href="/" 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${pathname === '/' ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Explorar Feed</span>
-              </Link>
-            )}
-            
-            <Link 
-              href="/publicaciones" 
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${pathname?.startsWith('/publicaciones') ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-            >
-              <Package className="w-4 h-4" />
-              <span>{isAdmin ? 'Publicaciones' : 'Mis Publicaciones'}</span>
-            </Link>
 
-            {userProfile && !isAdmin && (
-              <Link 
-                href={`/usuarios/${userAuth?.id}`} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${pathname === `/usuarios/${userAuth?.id}` ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                <User className="w-4 h-4" strokeWidth={2} />
-                <span>Mi Perfil / Tutorías</span>
-              </Link>
+            {/* Feed — solo usuarios no admin */}
+            {!isAdmin && navLink('/', <LayoutDashboard className="w-4 h-4" />, 'Explorar Feed', true)}
+
+            {/* Publicaciones — todos */}
+            {navLink('/publicaciones', <Package className="w-4 h-4" />, isAdmin ? 'Publicaciones' : 'Mis Publicaciones')}
+
+            {/* Mi Perfil / Tutorías — solo no admin */}
+            {userProfile && !isAdmin && navLink(
+              `/usuarios/${userAuth?.id}`,
+              <User className="w-4 h-4" strokeWidth={2} />,
+              'Mi Perfil / Tutorías',
+              true
             )}
 
-            {isAdmin && (
-              <Link 
-                href="/usuarios" 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-[14px] transition-colors ${pathname?.startsWith('/usuarios') ? 'bg-[#F8F7FF] text-[#534AB7] font-semibold' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <span>Usuarios</span>
-              </Link>
-            )}
+            {/* Chat — todos los usuarios autenticados */}
+            {userProfile && navLink('/chat', <MessageSquare className="w-4 h-4" />, 'Mensajería')}
 
+            {/* Usuarios — solo admin */}
+            {isAdmin && navLink('/usuarios', <Users className="w-4 h-4" />, 'Usuarios')}
+
+            {/* Dashboard Analytics — solo admin */}
+            {isAdmin && navLink('/admin/dashboard', <BarChart3 className="w-4 h-4" />, 'Analytics')}
+
+            {/* Guardados — solo usuarios no admin */}
             {!isAdmin && (
               <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
                 <Heart className="w-4 h-4" />
