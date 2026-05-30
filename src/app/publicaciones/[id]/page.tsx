@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, useParams } from "next/navigation";
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
 
 const ESTADO_CONFIG: Record<string, { label: string; bg: string; text: string; border: string }> = {
   activo:     { label: "Disponible",  bg: "bg-[#F8F7FF]",  text: "text-[#534AB7]",  border: "border-indigo-100" },
@@ -79,85 +81,18 @@ export default function DetallePublicacion() {
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
     >
       {/* ── SIDEBAR ── */}
-      <aside className="w-64 bg-white border-r border-slate-100 flex flex-col justify-between shrink-0 z-20 hidden lg:flex shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <div>
-          <div className="h-20 flex items-center px-8 border-b border-slate-50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center shadow-md shadow-indigo-500/20">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-bold text-[18px] text-slate-800 tracking-tight">Market<span className="text-[#534AB7]">Versitario</span></span>
-            </div>
-          </div>
-
-          <div className="px-5 py-6">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
-            <nav className="space-y-1.5">
-              {!isAdmin && (
-                <a href="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                  <LayoutDashboard className="w-4 h-4" /><span>Explorar Feed</span>
-                </a>
-              )}
-              <a href="/publicaciones" className="flex items-center gap-3 px-3 py-2.5 bg-[#F8F7FF] text-[#534AB7] rounded-xl font-semibold text-[14px] transition-colors">
-                <Package className="w-4 h-4" /><span>{isAdmin ? "Publicaciones" : "Mis Publicaciones"}</span>
-              </a>
-              {!isAdmin && (
-                <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                  <Heart className="w-4 h-4" /><span>Guardados</span>
-                </a>
-              )}
-            </nav>
-          </div>
-        </div>
-
-        <div className="px-5 py-6 border-t border-slate-50">
-          <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Ajustes</p>
-          <nav className="space-y-1.5">
-            <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-              <Settings className="w-4 h-4" /><span>Configuración</span>
-            </a>
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors mt-2">
-              <LogOut className="w-4 h-4" /><span>Cerrar Sesión</span>
-            </button>
-          </nav>
-        </div>
-      </aside>
+      <Sidebar userProfile={userProfile} userAuth={userAuth} />
 
       {/* ── CONTENIDO PRINCIPAL ── */}
       <main className="flex-1 flex flex-col min-w-0">
 
         {/* Topbar */}
-        <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-slate-500 hover:text-[#534AB7] transition-colors group"
-          >
-            <div className="w-9 h-9 rounded-xl border border-slate-200 flex items-center justify-center group-hover:border-[#534AB7]/30 group-hover:bg-[#F8F7FF] transition-all">
-              <ArrowLeft className="w-4 h-4" />
-            </div>
-            <span className="text-[14px] font-semibold hidden sm:block">Volver</span>
-          </button>
-
-          <div className="flex items-center gap-4">
-            <button className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
-            <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden sm:block"></div>
-            <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6055D0] to-[#534AB7] flex items-center justify-center text-white font-bold text-[14px] border-2 border-white shadow-sm uppercase">
-                {userProfile?.nombres?.charAt(0) || userAuth?.email?.charAt(0) || "U"}
-              </div>
-              <div className="hidden sm:block">
-                <p className="text-[13px] font-bold text-slate-700 group-hover:text-[#534AB7] transition-colors">
-                  {userProfile ? `${userProfile.nombres} ${userProfile.apellidos}` : "Usuario"}
-                </p>
-                <p className="text-[11px] text-slate-400 font-medium capitalize">{userProfile?.rol || "Estudiante"}</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
-            </div>
-          </div>
-        </header>
+        <Header 
+          userProfile={userProfile} 
+          userAuth={userAuth} 
+          title="Detalle de Publicación"
+          showBack={true}
+        />
 
         {/* Contenido scrollable */}
         <div className="flex-1 overflow-y-auto p-6 lg:p-10">

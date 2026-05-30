@@ -20,8 +20,12 @@ export async function GET(request: Request) {
     if (isAdmin) {
       const { data: solicitudesRol, error: err1 } = await supabase
         .from('solicitudes_tutor')
-        .select('id_solicitud, fecha, mensaje, profiles(nombres, apellidos)')
+        .select('id_solicitud, fecha, mensaje, profiles!id_usuario(nombres, apellidos)')
         .eq('estado', 'pendiente');
+
+      if (err1) {
+        console.error("Error in GET /api/notificaciones [solicitudes_tutor]:", err1);
+      }
 
       if (!err1 && solicitudesRol) {
         solicitudesRol.forEach((s: any) => {
@@ -37,11 +41,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // Si es tutor, buscar solicitudes de sus tutorías
+    // Si es tutor o admin, buscar solicitudes de sus tutorías o todas si es admin
     if (isTutor || isAdmin) {
-      // Necesitamos las solicitudes de tutoría hacia las tutorías que este usuario posee
-      // El RPC o query:
-      // Para admin (todas las pendientes), para tutor (sus tutorías pendientes)
       let query = supabase
         .from('solicitudes')
         .select('id_solicitud, fecha, mensaje, perfiles:profiles!id_usuario(nombres, apellidos), tutoria!inner(id_usuario, titulo)')
@@ -52,6 +53,10 @@ export async function GET(request: Request) {
       }
 
       const { data: solicitudesTutoria, error: err2 } = await query;
+
+      if (err2) {
+        console.error("Error in GET /api/notificaciones [solicitudes]:", err2);
+      }
 
       if (!err2 && solicitudesTutoria) {
         solicitudesTutoria.forEach((s: any) => {
