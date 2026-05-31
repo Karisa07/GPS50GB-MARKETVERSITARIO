@@ -466,11 +466,17 @@ export default function FeedMarketplace() {
                         </h3>
                         
                         <div className="mt-auto">
-                          <div className="border-t border-slate-105 pt-3 mt-3">
+                          <div className="border-t border-slate-105 pt-3 mt-3 flex items-center justify-between">
                             <p className="text-xl font-black text-slate-800 tracking-tight">
                               <span className="text-sm font-semibold text-slate-400 mr-1">$</span>
                               {new Intl.NumberFormat("es-CO").format(producto.precio || 0)}
                             </p>
+                            <Link 
+                              href={`/publicaciones/${producto.id_publicacion}`}
+                              className="px-3.5 py-2 bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white text-[11px] font-bold rounded-lg border border-transparent transition-all shadow-sm"
+                            >
+                              Ver Detalle
+                            </Link>
                           </div>
 
                           {/* Footer de la Card: Vendedor y Ubicación */}
@@ -647,13 +653,19 @@ export default function FeedMarketplace() {
                       </h3>
                       
                       <div className="mt-auto">
-                        
-                        <div className="border-t border-slate-100 pt-3 mt-3">
+
+                        <div className="border-t border-slate-100 pt-3 mt-3 flex items-center justify-between">
                           {/* Precio Estelar con separador sutil */}
                           <p className="text-xl font-black text-slate-800 tracking-tight">
                             <span className="text-sm font-semibold text-slate-400 mr-1">$</span>
                             {new Intl.NumberFormat("es-CO").format(producto.precio || 0)}
                           </p>
+                          <Link
+                            href={`/publicaciones/${producto.id_publicacion}`}
+                            className="px-3.5 py-2 bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white text-[11px] font-bold rounded-lg border border-transparent transition-all shadow-sm"
+                          >
+                            Ver Detalle
+                          </Link>
                         </div>
 
                         {/* Footer de la Card: Vendedor y Ubicación */}

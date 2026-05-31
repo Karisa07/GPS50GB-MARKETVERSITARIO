@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Package, User, 
   Heart, Settings, LogOut, Sparkles,
-  MessageSquare, BarChart3, Users
+  BarChart3, Users
 } from "lucide-react";
 
 interface SidebarProps {
@@ -60,7 +60,7 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
             {!isAdmin && navLink('/', <LayoutDashboard className="w-4 h-4" />, 'Explorar Feed', true)}
 
             {/* Publicaciones — todos */}
-            {navLink('/publicaciones', <Package className="w-4 h-4" />, isAdmin ? 'Publicaciones' : 'Mis Publicaciones')}
+            {navLink('/publicaciones', <Package className="w-4 h-4" />, isAdmin ? 'Publicaciones' : 'Mis Publicaciones', true)}
 
             {/* Mi Perfil / Tutorías — solo no admin */}
             {userProfile && !isAdmin && navLink(
@@ -69,9 +69,6 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
               'Mi Perfil / Tutorías',
               true
             )}
-
-            {/* Chat — todos los usuarios autenticados */}
-            {userProfile && navLink('/chat', <MessageSquare className="w-4 h-4" />, 'Mensajería')}
 
             {/* Usuarios — solo admin */}
             {isAdmin && navLink('/usuarios', <Users className="w-4 h-4" />, 'Usuarios')}
