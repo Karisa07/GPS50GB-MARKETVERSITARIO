@@ -368,7 +368,7 @@ export default function DetallePublicacion() {
                         <motion.button
                           whileTap={{ scale: 1.3 }}
                           animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
-                          transition={{ duration: 0.3, type: "spring" }}
+                          transition={{ duration: 0.35, type: "tween", ease: "backOut" }}
                           onClick={toggleLike}
                           className={`absolute top-4 right-4 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm border transition-all ${isLiked ? "bg-rose-500 border-rose-400 text-white" : "bg-white/90 border-white text-slate-400 hover:text-rose-500"}`}
                         >

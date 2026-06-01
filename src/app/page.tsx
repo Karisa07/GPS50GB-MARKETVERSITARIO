@@ -502,7 +502,7 @@ export default function FeedMarketplace() {
                           onClick={(e) => toggleLike(producto.id_publicacion, e)}
                           whileTap={{ scale: 1.4 }}
                           animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
-                          transition={{ duration: 0.3, type: "spring" }}
+                          transition={{ duration: 0.35, type: "tween", ease: "backOut" }}
                           className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white transition-colors shadow-sm z-10"
                         >
                           <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
@@ -688,7 +688,7 @@ export default function FeedMarketplace() {
                         onClick={(e) => toggleLike(producto.id_publicacion, e)}
                         whileTap={{ scale: 1.4 }}
                         animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
-                        transition={{ duration: 0.3, type: "spring" }}
+                        transition={{ duration: 0.35, type: "tween", ease: "backOut" }}
                         className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white transition-colors shadow-sm"
                       >
                         <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
