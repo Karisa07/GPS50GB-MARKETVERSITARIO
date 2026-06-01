@@ -8,7 +8,7 @@ import {
   Trash2, Check, X, Clock, Sparkles, GraduationCap, 
   CalendarDays, Bell, LayoutDashboard, Package, Heart, 
   Settings, LogOut, ChevronDown, Loader2, AlertTriangle, Camera,
-  Zap
+  Zap, FileText, UploadCloud, BookMarked
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
@@ -66,6 +66,10 @@ export default function PerfilUsuario() {
   const [tutorRequest, setTutorRequest] = useState<any>(null);
   const [showTutorModal, setShowTutorModal] = useState(false);
   const [tutorMessage, setTutorMessage] = useState("");
+  const [tutorArea, setTutorArea] = useState("");
+  const [notasFile, setNotasFile] = useState<File | null>(null);
+  const [notasFileName, setNotasFileName] = useState("");
+  const [uploadingNotas, setUploadingNotas] = useState(false);
   const [sendingTutorRequest, setSendingTutorRequest] = useState(false);
 
   const isOwnProfile = currentUser?.id === id;
@@ -219,14 +223,40 @@ export default function PerfilUsuario() {
     }
   };
 
+  const handleNotasFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setNotasFile(file);
+    setNotasFileName(file.name);
+  };
+
   const handleSolicitarTutor = async () => {
-    if (!tutorMessage.trim()) return alert("Por favor ingresa un mensaje justificando por qué quieres ser tutor.");
+    if (!tutorArea.trim()) return alert("Debes indicar el área en la que deseas impartir tutorías.");
+    if (!notasFile) return alert("Debes adjuntar el documento con tus notas en el área indicada.");
+
     setSendingTutorRequest(true);
+    setUploadingNotas(true);
     try {
+      // 1. Subir el archivo de notas a Supabase Storage
+      const supabase = createClient();
+      const ext = notasFile.name.split('.').pop();
+      const filePath = `${currentUser!.id}/${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('notas-tutor')
+        .upload(filePath, notasFile, { upsert: true });
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage
+        .from('notas-tutor')
+        .getPublicUrl(filePath);
+      const url_notas = urlData.publicUrl;
+      setUploadingNotas(false);
+
+      // 2. Enviar solicitud con todos los campos
       const res = await fetch("/api/solicitudes-tutor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mensaje: tutorMessage })
+        body: JSON.stringify({ mensaje: tutorMessage, area_interes: tutorArea, url_notas })
       });
       if (!res.ok) {
         const json = await res.json();
@@ -235,11 +265,16 @@ export default function PerfilUsuario() {
       const json = await res.json();
       setTutorRequest(json.data);
       setShowTutorModal(false);
+      setTutorMessage("");
+      setTutorArea("");
+      setNotasFile(null);
+      setNotasFileName("");
       alert("Solicitud enviada exitosamente. Un administrador la revisará pronto.");
     } catch (err: any) {
       alert(err.message);
     } finally {
       setSendingTutorRequest(false);
+      setUploadingNotas(false);
     }
   };
 
@@ -881,34 +916,115 @@ export default function PerfilUsuario() {
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 pointer-events-auto flex flex-col gap-5">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 pointer-events-auto flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+
+                {/* Encabezado */}
                 <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                    <GraduationCap className="w-6 h-6 text-[#534AB7]" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                      <GraduationCap className="w-6 h-6 text-[#534AB7]" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-black text-slate-800 leading-tight">Solicitar ser Tutor</h2>
+                      <p className="text-[12px] text-slate-400">Completa los campos para enviar tu solicitud</p>
+                    </div>
                   </div>
-                  <button onClick={() => setShowTutorModal(false)} className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors">
+                  <button
+                    onClick={() => !sendingTutorRequest && setShowTutorModal(false)}
+                    className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                  >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div>
-                  <h2 className="text-xl font-black text-slate-800">Solicitar ser Tutor</h2>
-                  <p className="text-[13px] text-slate-500 mt-1">Escribe una breve justificación de por qué te gustaría ser tutor oficial en MarketVersitario.</p>
+
+                {/* Campo 1: Área de tutorías */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <BookMarked className="w-3.5 h-3.5 text-[#534AB7]" />
+                    Área en la que deseas impartir tutorías <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={tutorArea}
+                    onChange={e => setTutorArea(e.target.value)}
+                    placeholder="Ej: Cálculo diferencial, Programación, Estadística..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 transition-all"
+                    disabled={sendingTutorRequest}
+                  />
                 </div>
-                <textarea
-                  value={tutorMessage}
-                  onChange={e => setTutorMessage(e.target.value)}
-                  rows={4}
-                  placeholder="Ej: Tengo buen promedio en cálculo y programación..."
-                  className="w-full p-4 rounded-xl border border-slate-200 text-[14px] focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 resize-none transition-all"
-                />
+
+                {/* Campo 2: Subir notas */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#534AB7]" />
+                    Documento de notas en esa área <span className="text-rose-500">*</span>
+                  </label>
+                  <p className="text-[11px] text-slate-400 -mt-1">Adjunta tu historial académico, kardex o captura de notas (PDF, imagen o Word)</p>
+
+                  <label
+                    className={`flex flex-col items-center justify-center gap-2 w-full py-6 rounded-xl border-2 border-dashed transition-all cursor-pointer ${
+                      notasFile
+                        ? "border-[#534AB7] bg-indigo-50/60"
+                        : "border-slate-200 hover:border-[#534AB7]/40 hover:bg-slate-50"
+                    } ${sendingTutorRequest ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    {notasFile ? (
+                      <>
+                        <FileText className="w-8 h-8 text-[#534AB7]" />
+                        <span className="text-[13px] font-bold text-[#534AB7] text-center px-2 truncate max-w-full">{notasFileName}</span>
+                        <span className="text-[11px] text-slate-400">Haz clic para cambiar el archivo</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-8 h-8 text-slate-300" />
+                        <span className="text-[13px] font-semibold text-slate-500">Haz clic para subir tu archivo</span>
+                        <span className="text-[11px] text-slate-400">PDF, JPG, PNG, DOCX — máx. 10 MB</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                      className="hidden"
+                      onChange={handleNotasFileChange}
+                      disabled={sendingTutorRequest}
+                    />
+                  </label>
+                </div>
+
+                {/* Campo 3: Mensaje de justificación (opcional) */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
+                    Mensaje de justificación <span className="text-slate-300 font-normal">(opcional)</span>
+                  </label>
+                  <textarea
+                    value={tutorMessage}
+                    onChange={e => setTutorMessage(e.target.value)}
+                    rows={3}
+                    placeholder="Ej: Tengo buen promedio en cálculo y me gustaría ayudar a otros estudiantes..."
+                    className="w-full p-4 rounded-xl border border-slate-200 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#534AB7] focus:ring-2 focus:ring-[#534AB7]/10 resize-none transition-all"
+                    disabled={sendingTutorRequest}
+                  />
+                </div>
+
+                {/* Botón enviar */}
                 <button
                   onClick={handleSolicitarTutor}
-                  disabled={sendingTutorRequest || !tutorMessage.trim()}
-                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white font-bold text-[14px] transition-all flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+                  disabled={sendingTutorRequest || !tutorArea.trim() || !notasFile}
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white font-bold text-[14px] transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {sendingTutorRequest ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  {sendingTutorRequest ? 'Enviando solicitud...' : 'Enviar Solicitud'}
+                  {sendingTutorRequest ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      {uploadingNotas ? 'Subiendo documento...' : 'Enviando solicitud...'}
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Enviar Solicitud
+                    </>
+                  )}
                 </button>
+
               </div>
             </motion.div>
           </>
