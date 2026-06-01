@@ -228,9 +228,69 @@ export async function GET(request: Request) {
       });
     }
 
+
+    // ── 4.5 Auditoría de Destacados & Pagos ───────────────────────────────
+    // A. Publicaciones y tutorías destacadas activas
+    const { data: pubsDestacadas } = await supabase
+      .from('publicacion')
+      .select('id_publicacion, titulo, destacada_hasta, id_usuario, profiles(nombres, apellidos)')
+      .eq('destacada', true);
+
+    const { data: tutoriasDestacadas } = await supabase
+      .from('tutoria')
+      .select('id_tutoria, titulo, destacada_hasta, id_usuario, profiles(nombres, apellidos)')
+      .eq('destacada', true);
+
+    const destacadosActivos = [
+      ...(pubsDestacadas || []).map((p: any) => ({
+        id: p.id_publicacion,
+        titulo: p.titulo,
+        tipo: 'publicacion',
+        destacada_hasta: p.destacada_hasta,
+        usuario: (p.profiles as any) ? `${(p.profiles as any).nombres} ${(p.profiles as any).apellidos}` : 'Usuario',
+        dias_restantes: p.destacada_hasta
+          ? Math.max(0, Math.ceil((new Date(p.destacada_hasta).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          : 0,
+      })),
+      ...(tutoriasDestacadas || []).map((t: any) => ({
+        id: t.id_tutoria,
+        titulo: t.titulo,
+        tipo: 'tutoria',
+        destacada_hasta: t.destacada_hasta,
+        usuario: (t.profiles as any) ? `${(t.profiles as any).nombres} ${(t.profiles as any).apellidos}` : 'Usuario',
+        dias_restantes: t.destacada_hasta
+          ? Math.max(0, Math.ceil((new Date(t.destacada_hasta).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          : 0,
+      }))
+    ];
+
+    // B. Historial de Pagos
+    const { data: pagos } = await supabase
+      .from('pagos')
+      .select('id_pago, monto, estado, referencia, metodo_pago, created_at, id_usuario, profiles(nombres, apellidos)')
+      .order('created_at', { ascending: false });
+
+    const totalIngresosDestacados = (pagos || [])
+      .filter((p: any) => p.estado === 'completado')
+      .reduce((sum: number, p: any) => sum + parseFloat(p.monto || 0), 0);
+
     return NextResponse.json({
       data: {
+        destacados: {
+          destacadosActivos,
+          pagos: (pagos || []).map((p: any) => ({
+            id: p.id_pago,
+            monto: p.monto,
+            estado: p.estado,
+            referencia: p.referencia,
+            metodo_pago: p.metodo_pago,
+            created_at: p.created_at,
+            usuario: p.profiles ? `${p.profiles.nombres} ${p.profiles.apellidos}` : 'Usuario',
+          })),
+          totalIngresosDestacados
+        },
         kpis: {
+
           totalIntenciones: totalIntenciones || 0,
           totalConfirmadas: totalConfirmadas || 0,
           totalPendientes: totalPendientes || 0,
