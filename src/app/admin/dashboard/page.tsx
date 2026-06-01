@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { 
   TrendingUp, Users, Package, BookOpen, 
   DollarSign, Loader2, RefreshCw, Sparkles,
-  ArrowUpRight, AlertTriangle, ShieldCheck, Tag, Zap, CreditCard, ChevronRight
+  ArrowUpRight, AlertTriangle, ShieldCheck, Tag, Zap, CreditCard, ChevronRight, GraduationCap
 } from "lucide-react";
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -389,6 +389,25 @@ export default function AdminDashboard() {
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
+              </div>
+
+              {/* 9. Bento Card: Acceso rápido Solicitudes de Tutor (6 cols / 1 row) */}
+              <div className="lg:col-span-12 bg-white rounded-3xl border border-slate-100 p-5 flex items-center justify-between gap-6 shadow-sm hover:border-[#534AB7]/20 transition-colors group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+                    <GraduationCap className="w-6 h-6 text-[#534AB7]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-[14px]">Solicitudes de Tutor</h3>
+                    <p className="text-[11px] text-slate-400">Revisa y aprueba solicitudes de estudiantes que quieren convertirse en tutores oficiales</p>
+                  </div>
+                </div>
+                <Link
+                  href="/admin/tutores"
+                  className="shrink-0 flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white text-xs font-bold rounded-xl transition-all shadow-sm shadow-indigo-500/20 whitespace-nowrap"
+                >
+                  Revisar Solicitudes <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
 
             </div>

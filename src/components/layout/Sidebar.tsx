@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, Package, User, 
   Heart, Settings, LogOut, Sparkles,
-  BarChart3, Users, ShieldCheck
+  BarChart3, Users, ShieldCheck, GraduationCap
 } from "lucide-react";
 
 interface SidebarProps {
@@ -78,6 +78,9 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
 
             {/* Auditoría de Ventas — solo admin */}
             {isAdmin && navLink('/admin/auditoria', <ShieldCheck className="w-4 h-4" />, 'Auditoría')}
+
+            {/* Solicitudes de Tutor — solo admin */}
+            {isAdmin && navLink('/admin/tutores', <GraduationCap className="w-4 h-4" />, 'Solicitudes Tutor')}
 
             {/* Guardados — solo usuarios no admin */}
             {!isAdmin && navLink('/guardados', <Heart className="w-4 h-4" />, 'Guardados')}
