@@ -28,6 +28,7 @@ export async function GET(request: Request) {
     const porPagina = parseInt(searchParams.get('por_pagina') || '50');
     const offset = (pagina - 1) * porPagina;
 
+
     // ── 1. Log de ventas (intenciones_compra con detalle) ──────────────────
     let query = supabase
       .from('intenciones_compra')
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
         comentario_comprador,
         id_publicacion,
         id_comprador,
-        comprador:profiles!intenciones_compra_id_comprador_fkey(nombres, apellidos, email),
+        comprador:profiles!intenciones_compra_id_comprador_fkey(nombres, apellidos),
         publicacion(id_publicacion, titulo, precio, estado, id_usuario)
       `, { count: 'exact' })
       .order('fecha_clic', { ascending: false })
@@ -70,9 +71,31 @@ export async function GET(request: Request) {
     if (vendedorIds.length > 0) {
       const { data: vendedores } = await supabase
         .from('profiles')
-        .select('id, nombres, apellidos, email')
+        .select('id, nombres, apellidos')
         .in('id', vendedorIds);
       (vendedores || []).forEach((v: any) => { vendedoresMap[v.id] = v; });
+    }
+
+    // ── 2.5 Obtener emails desde auth.users si es superadmin (profiles no tiene email) ──
+    let emailsMap: Record<string, string> = {};
+    if (isSuperAdmin) {
+      try {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+        const adminSupabase = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data: { users }, error: listError } = await adminSupabase.auth.admin.listUsers({
+          perPage: 1000
+        });
+        if (!listError && users) {
+          users.forEach((u: any) => {
+            emailsMap[u.id] = u.email || '';
+          });
+        }
+      } catch (err) {
+        console.error('Error al listar emails de auth para superadmin:', err);
+      }
     }
 
     // ── 3. Detección de fraude (solo superadmin ve el detalle completo) ────
@@ -152,7 +175,7 @@ export async function GET(request: Request) {
           ? {
               nombres: i.comprador.nombres,
               apellidos: i.comprador.apellidos,
-              ...(isSuperAdmin && { email: i.comprador.email }),
+              ...(isSuperAdmin && { email: emailsMap[i.id_comprador] || 'No disponible' }),
               es_sospechoso: esSospechoso,
             }
           : null,
@@ -160,11 +183,12 @@ export async function GET(request: Request) {
           ? {
               nombres: vendedor.nombres,
               apellidos: vendedor.apellidos,
-              ...(isSuperAdmin && { email: vendedor.email }),
+              ...(isSuperAdmin && { email: emailsMap[i.publicacion?.id_usuario] || 'No disponible' }),
             }
           : null,
       };
     });
+
 
     // ── 6. Exportar CSV si se solicita ─────────────────────────────────────
     if (formato === 'csv') {
