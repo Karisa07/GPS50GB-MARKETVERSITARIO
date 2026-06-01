@@ -56,6 +56,9 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Navegación</p>
           <nav className="space-y-1.5">
 
+            {/* Dashboard Analytics — solo admin */}
+            {isAdmin && navLink('/admin/dashboard', <BarChart3 className="w-4 h-4" />, 'Métricas')}
+
             {/* Feed — solo usuarios no admin */}
             {!isAdmin && navLink('/', <LayoutDashboard className="w-4 h-4" />, 'Explorar Feed', true)}
 
@@ -72,9 +75,6 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
 
             {/* Usuarios — solo admin */}
             {isAdmin && navLink('/usuarios', <Users className="w-4 h-4" />, 'Usuarios')}
-
-            {/* Dashboard Analytics — solo admin */}
-            {isAdmin && navLink('/admin/dashboard', <BarChart3 className="w-4 h-4" />, 'Analytics')}
 
             {/* Auditoría de Ventas — solo admin */}
             {isAdmin && navLink('/admin/auditoria', <ShieldCheck className="w-4 h-4" />, 'Auditoría')}
