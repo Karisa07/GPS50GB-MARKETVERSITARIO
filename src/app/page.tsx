@@ -84,7 +84,24 @@ export default function FeedMarketplace() {
           return;
         }
 
-
+        // Cargar favoritos
+        try {
+          const favRes = await fetch('/api/favoritos');
+          if (favRes.ok) {
+            const favJson = await favRes.json();
+            const likedMap: { [key: string]: boolean } = {};
+            (favJson.data || []).forEach((fav: any) => {
+              if (fav.id_publicacion) {
+                likedMap[fav.id_publicacion] = true;
+              } else if (fav.id_tutoria) {
+                likedMap[fav.id_tutoria] = true;
+              }
+            });
+            setLikedItems(likedMap);
+          }
+        } catch (err) {
+          console.error("Error al cargar favoritos iniciales:", err);
+        }
       }
 
       try {
@@ -178,9 +195,48 @@ export default function FeedMarketplace() {
 
 
 
-  const toggleLike = (id: string, e: React.MouseEvent) => {
+  const toggleLike = async (id: string, e: React.MouseEvent, type: 'publicacion' | 'tutoria' = 'publicacion') => {
     e.preventDefault();
-    setLikedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    e.stopPropagation();
+
+    if (!userAuth) {
+      alert("Debes iniciar sesión para guardar favoritos");
+      return;
+    }
+
+    const isCurrentlyLiked = likedItems[id];
+    
+    // Update UI optimistically
+    setLikedItems(prev => ({ ...prev, [id]: !isCurrentlyLiked }));
+
+    try {
+      if (isCurrentlyLiked) {
+        // DELETE from favorites
+        const params = new URLSearchParams();
+        if (type === 'publicacion') {
+          params.append('id_publicacion', id);
+        } else {
+          params.append('id_tutoria', id);
+        }
+        await fetch(`/api/favoritos?${params.toString()}`, {
+          method: 'DELETE'
+        });
+      } else {
+        // POST to favorites
+        await fetch('/api/favoritos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_publicacion: type === 'publicacion' ? parseInt(id) : undefined,
+            id_tutoria: type === 'tutoria' ? parseInt(id) : undefined,
+          })
+        });
+      }
+    } catch (err) {
+      console.error("Error al alternar favorito:", err);
+      // Revert if error
+      setLikedItems(prev => ({ ...prev, [id]: isCurrentlyLiked }));
+    }
   };
 
   const handleLogout = async () => {

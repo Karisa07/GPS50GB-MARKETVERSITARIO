@@ -80,12 +80,7 @@ export default function Sidebar({ userProfile, userAuth }: SidebarProps) {
             {isAdmin && navLink('/admin/auditoria', <ShieldCheck className="w-4 h-4" />, 'Auditoría')}
 
             {/* Guardados — solo usuarios no admin */}
-            {!isAdmin && (
-              <a href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 hover:bg-slate-50 hover:text-slate-700 rounded-xl font-medium text-[14px] transition-colors">
-                <Heart className="w-4 h-4" />
-                <span>Guardados</span>
-              </a>
-            )}
+            {!isAdmin && navLink('/guardados', <Heart className="w-4 h-4" />, 'Guardados')}
           </nav>
         </div>
       </div>
