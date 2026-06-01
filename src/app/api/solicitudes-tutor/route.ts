@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('solicitudes_tutor')
-      .select('*, profiles(nombres, apellidos, email)')
+      .select('*')
       .order('fecha', { ascending: false });
 
     // Si no es admin, solo puede ver sus propias solicitudes
@@ -43,13 +43,29 @@ export async function POST(request: Request) {
     }
 
     const json = await request.json();
-    const { mensaje } = json;
+    const { mensaje, area_interes, url_notas } = json;
+
+    if (!area_interes?.trim()) {
+      return NextResponse.json(
+        { error: 'Debes indicar el área en la que deseas impartir tutorías.' },
+        { status: 400 }
+      );
+    }
+
+    if (!url_notas) {
+      return NextResponse.json(
+        { error: 'Debes adjuntar el documento con tus notas en el área indicada.' },
+        { status: 400 }
+      );
+    }
 
     const { data, error } = await supabase
       .from('solicitudes_tutor')
       .insert({
         id_usuario: user.id,
         mensaje,
+        area_interes: area_interes.trim(),
+        url_notas,
         estado: 'pendiente'
       })
       .select()

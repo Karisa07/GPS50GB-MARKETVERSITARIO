@@ -33,6 +33,9 @@ export default function DetalleTutoria() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [fechaAgenda, setFechaAgenda] = useState("");
+  const [horaInicio, setHoraInicio] = useState("");
+  const [horaFin, setHoraFin] = useState("");
 
   const [isLiked, setIsLiked] = useState(false);
 
@@ -101,6 +104,9 @@ export default function DetalleTutoria() {
         body: JSON.stringify({
           id_tutoria: Number(id),
           mensaje: message.trim(),
+          fecha_agenda: fechaAgenda || null,
+          hora_inicio: horaInicio || null,
+          hora_fin: horaFin || null
         }),
       });
 
@@ -373,16 +379,49 @@ export default function DetalleTutoria() {
                     key="form"
                     className="space-y-4"
                   >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="fechaAgenda" className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Fecha sugerida</Label>
+                        <input
+                          id="fechaAgenda"
+                          type="date"
+                          value={fechaAgenda}
+                          onChange={(e) => setFechaAgenda(e.target.value)}
+                          className="h-11 px-4 rounded-xl border border-slate-200 bg-white text-[13px] text-slate-700 outline-none focus:border-[#534AB7] w-full"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="horaInicio" className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hora de Inicio</Label>
+                        <input
+                          id="horaInicio"
+                          type="time"
+                          value={horaInicio}
+                          onChange={(e) => setHoraInicio(e.target.value)}
+                          className="h-11 px-4 rounded-xl border border-slate-200 bg-white text-[13px] text-slate-700 outline-none focus:border-[#534AB7] w-full"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="horaFin" className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Hora de Fin</Label>
+                        <input
+                          id="horaFin"
+                          type="time"
+                          value={horaFin}
+                          onChange={(e) => setHoraFin(e.target.value)}
+                          className="h-11 px-4 rounded-xl border border-slate-200 bg-white text-[13px] text-slate-700 outline-none focus:border-[#534AB7] w-full"
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label htmlFor="mensaje" className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
                         Escribe un mensaje al tutor (Opcional)
                       </Label>
                       <Textarea 
                         id="mensaje"
-                        placeholder="Hola! Me gustaría programar una tutoría contigo para este tema. Tengo disponibilidad los..."
+                        placeholder="Hola! Me gustaría programar una tutoría contigo para este tema..."
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        className="min-h-[120px] rounded-2xl border-slate-200 bg-white p-4 focus-visible:ring-2 focus-visible:ring-[#534AB7]/20 focus-visible:border-[#534AB7] resize-none transition-all text-[14px] text-slate-700 leading-relaxed shadow-sm block w-full"
+                        className="min-h-[100px] rounded-2xl border-slate-200 bg-white p-4 focus-visible:ring-2 focus-visible:ring-[#534AB7]/20 focus-visible:border-[#534AB7] resize-none transition-all text-[14px] text-slate-700 leading-relaxed shadow-sm block w-full"
                       />
                     </div>
 

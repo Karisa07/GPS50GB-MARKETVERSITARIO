@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { expandQuery } from '@/lib/search-expander';
 
 export async function POST(request: Request) {
@@ -28,8 +29,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Insertar en la base de datos
-    const { data, error } = await supabase
+    // 4. Insertar en la base de datos usando cliente admin para bypasear RLS
+    // (La autenticación ya fue validada arriba con auth.getUser())
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from('publicacion')
       .insert([
         {
@@ -85,7 +88,7 @@ export async function GET(request: Request) {
       .from('publicacion')
       .select(`
         *,
-        perfil:profiles(nombres, apellidos, programa_academico, telefono),
+        perfil:profiles!publicacion_id_usuario_fkey(nombres, apellidos, programa_academico, telefono),
         categorias(nombre)
       `)
       .order('destacada', { ascending: false })

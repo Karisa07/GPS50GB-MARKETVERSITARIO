@@ -45,6 +45,7 @@ export default function FeedMarketplace() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userAuth, setUserAuth] = useState<any>(null);
 
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false); // debounce indicator
   const [activePriceRange, setActivePriceRange] = useState(0);
@@ -61,7 +62,7 @@ export default function FeedMarketplace() {
     const fetchUserAndData = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user) {
         setUserAuth(user);
         const { data: profile } = await supabase
@@ -82,6 +83,25 @@ export default function FeedMarketplace() {
           router.push('/publicaciones');
           return;
         }
+
+        // Cargar favoritos
+        try {
+          const favRes = await fetch('/api/favoritos');
+          if (favRes.ok) {
+            const favJson = await favRes.json();
+            const likedMap: { [key: string]: boolean } = {};
+            (favJson.data || []).forEach((fav: any) => {
+              if (fav.id_publicacion) {
+                likedMap[fav.id_publicacion] = true;
+              } else if (fav.id_tutoria) {
+                likedMap[fav.id_tutoria] = true;
+              }
+            });
+            setLikedItems(likedMap);
+          }
+        } catch (err) {
+          console.error("Error al cargar favoritos iniciales:", err);
+        }
       }
 
       try {
@@ -90,7 +110,7 @@ export default function FeedMarketplace() {
           fetch('/api/categorias'),
           fetch('/api/tutorias')
         ]);
-        
+
         if (resPubs.ok) {
           const json = await resPubs.json();
           setProductos(json.data || []);
@@ -175,9 +195,48 @@ export default function FeedMarketplace() {
 
 
 
-  const toggleLike = (id: string, e: React.MouseEvent) => {
+  const toggleLike = async (id: string, e: React.MouseEvent, type: 'publicacion' | 'tutoria' = 'publicacion') => {
     e.preventDefault();
-    setLikedItems(prev => ({ ...prev, [id]: !prev[id] }));
+    e.stopPropagation();
+
+    if (!userAuth) {
+      alert("Debes iniciar sesión para guardar favoritos");
+      return;
+    }
+
+    const isCurrentlyLiked = likedItems[id];
+    
+    // Update UI optimistically
+    setLikedItems(prev => ({ ...prev, [id]: !isCurrentlyLiked }));
+
+    try {
+      if (isCurrentlyLiked) {
+        // DELETE from favorites
+        const params = new URLSearchParams();
+        if (type === 'publicacion') {
+          params.append('id_publicacion', id);
+        } else {
+          params.append('id_tutoria', id);
+        }
+        await fetch(`/api/favoritos?${params.toString()}`, {
+          method: 'DELETE'
+        });
+      } else {
+        // POST to favorites
+        await fetch('/api/favoritos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_publicacion: type === 'publicacion' ? parseInt(id) : undefined,
+            id_tutoria: type === 'tutoria' ? parseInt(id) : undefined,
+          })
+        });
+      }
+    } catch (err) {
+      console.error("Error al alternar favorito:", err);
+      // Revert if error
+      setLikedItems(prev => ({ ...prev, [id]: isCurrentlyLiked }));
+    }
   };
 
   const handleLogout = async () => {
@@ -443,7 +502,7 @@ export default function FeedMarketplace() {
                           onClick={(e) => toggleLike(producto.id_publicacion, e)}
                           whileTap={{ scale: 1.4 }}
                           animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
-                          transition={{ duration: 0.3, type: "spring" }}
+                          transition={{ duration: 0.35, type: "tween", ease: "backOut" }}
                           className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white transition-colors shadow-sm z-10"
                         >
                           <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
@@ -466,11 +525,17 @@ export default function FeedMarketplace() {
                         </h3>
                         
                         <div className="mt-auto">
-                          <div className="border-t border-slate-105 pt-3 mt-3">
+                          <div className="border-t border-slate-105 pt-3 mt-3 flex items-center justify-between">
                             <p className="text-xl font-black text-slate-800 tracking-tight">
                               <span className="text-sm font-semibold text-slate-400 mr-1">$</span>
                               {new Intl.NumberFormat("es-CO").format(producto.precio || 0)}
                             </p>
+                            <Link 
+                              href={`/publicaciones/${producto.id_publicacion}`}
+                              className="px-3.5 py-2 bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white text-[11px] font-bold rounded-lg border border-transparent transition-all shadow-sm"
+                            >
+                              Ver Detalle
+                            </Link>
                           </div>
 
                           {/* Footer de la Card: Vendedor y Ubicación */}
@@ -623,7 +688,7 @@ export default function FeedMarketplace() {
                         onClick={(e) => toggleLike(producto.id_publicacion, e)}
                         whileTap={{ scale: 1.4 }}
                         animate={{ scale: isLiked ? [1, 1.3, 1] : 1 }}
-                        transition={{ duration: 0.3, type: "spring" }}
+                        transition={{ duration: 0.35, type: "tween", ease: "backOut" }}
                         className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-white transition-colors shadow-sm"
                       >
                         <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
@@ -647,13 +712,19 @@ export default function FeedMarketplace() {
                       </h3>
                       
                       <div className="mt-auto">
-                        
-                        <div className="border-t border-slate-100 pt-3 mt-3">
+
+                        <div className="border-t border-slate-100 pt-3 mt-3 flex items-center justify-between">
                           {/* Precio Estelar con separador sutil */}
                           <p className="text-xl font-black text-slate-800 tracking-tight">
                             <span className="text-sm font-semibold text-slate-400 mr-1">$</span>
                             {new Intl.NumberFormat("es-CO").format(producto.precio || 0)}
                           </p>
+                          <Link
+                            href={`/publicaciones/${producto.id_publicacion}`}
+                            className="px-3.5 py-2 bg-gradient-to-r from-[#6055D0] to-[#534AB7] hover:from-[#5048C0] hover:to-[#4339a8] text-white text-[11px] font-bold rounded-lg border border-transparent transition-all shadow-sm"
+                          >
+                            Ver Detalle
+                          </Link>
                         </div>
 
                         {/* Footer de la Card: Vendedor y Ubicación */}
@@ -771,6 +842,7 @@ export default function FeedMarketplace() {
 
         </div>
       </main>
+
     </div>
   );
 }

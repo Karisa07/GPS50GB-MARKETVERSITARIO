@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Search, Bell, ChevronDown, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -32,13 +33,31 @@ export default function Header({
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
 
+  const [mostrarModalConfirmacion, setMostrarModalConfirmacion] = useState(false);
+  const [intencionActual, setIntencionActual] = useState<any>(null);
+  const [mostrarCalificacion, setMostrarCalificacion] = useState(false);
+  const [calificacion, setCalificacion] = useState(0);
+  const [comentario, setComentario] = useState('');
+
   React.useEffect(() => {
     const fetchNotifications = async () => {
       try {
         const res = await fetch('/api/notificaciones');
         if (res.ok) {
           const json = await res.json();
-          setNotifications(json.data || []);
+          const list = json.data || [];
+          setNotifications(list);
+
+          // Auto-trigger purchase confirmation popup if there's a pending one
+          const pendingConfirm = list.find((n: any) => n.tipo === 'intencion_pendiente');
+          if (pendingConfirm && pendingConfirm.payload) {
+            const vistasKey = `intenciones_vistas_${userAuth?.id}`;
+            const vistas = JSON.parse(localStorage.getItem(vistasKey) || '[]');
+            if (!vistas.includes(pendingConfirm.payload.id)) {
+              setIntencionActual(pendingConfirm.payload);
+              setMostrarModalConfirmacion(true);
+            }
+          }
         }
       } catch (err) {
         console.error(err);
@@ -46,16 +65,215 @@ export default function Header({
         setLoadingNotifications(false);
       }
     };
+
+    let intervalId: NodeJS.Timeout | null = null;
+
     if (userAuth) {
+      setLoadingNotifications(true);
       fetchNotifications();
+      // Cargar notificaciones cada 30 segundos
+      intervalId = setInterval(fetchNotifications, 30000);
     } else {
       setLoadingNotifications(false);
     }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [userAuth]);
 
   const unreadCount = notifications.length;
 
+  // For createPortal SSR safety
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const modal = mostrarModalConfirmacion && intencionActual ? (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+      style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-sans antialiased"
+        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
+      >
+        {!mostrarCalificacion ? (
+          <>
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">¡Confirmación de Compra!</h3>
+              <p className="text-sm text-slate-500 mt-1">
+                {intencionActual.vendedor?.nombres} {intencionActual.vendedor?.apellidos} indica que te vendió: &ldquo;{intencionActual.publicacion?.titulo}&rdquo;
+              </p>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                {intencionActual.publicacion?.imagen && (
+                  <img
+                    src={intencionActual.publicacion.imagen}
+                    alt={intencionActual.publicacion.titulo}
+                    className="w-20 h-20 rounded-xl object-cover"
+                  />
+                )}
+                <div>
+                  <p className="font-semibold text-slate-800">{intencionActual.publicacion?.titulo}</p>
+                  <p className="text-sm text-slate-500">
+                    ${new Intl.NumberFormat("es-CO").format(intencionActual.publicacion?.precio || 0)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">¿Compraste este artículo?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/intenciones/${intencionActual.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accion: 'rechazar' })
+                      });
+                      if (!res.ok) {
+                        const json = await res.json();
+                        alert(json.error || 'Error al rechazar');
+                        return;
+                      }
+                      const vistasKey = `intenciones_vistas_${userAuth?.id}`;
+                      const vistas = JSON.parse(localStorage.getItem(vistasKey) || '[]');
+                      vistas.push(intencionActual.id);
+                      localStorage.setItem(vistasKey, JSON.stringify(vistas));
+                      setNotifications(prev => prev.filter(n => n.id !== `intencion-${intencionActual.id}`));
+                      setMostrarModalConfirmacion(false);
+                      setIntencionActual(null);
+                    } catch (err) {
+                      console.error(err);
+                      alert('Error al rechazar');
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  No, es un error
+                </button>
+                <button
+                  onClick={() => setMostrarCalificacion(true)}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all"
+                >
+                  Sí, lo compré
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="p-6 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">Califica al Vendedor</h3>
+              <p className="text-sm text-slate-500 mt-1">¿Cómo fue tu experiencia con {intencionActual.vendedor?.nombres}?</p>
+            </div>
+            <div className="p-6">
+              <div className="flex justify-center gap-2 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setCalificacion(star)}
+                    className={`text-3xl transition-colors ${star <= calificacion ? 'text-yellow-400' : 'text-slate-300'}`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
+                placeholder="Deja un comentario (opcional)"
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:border-[#534AB7] mb-4"
+                rows={3}
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/intenciones/${intencionActual.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accion: 'confirmar', calificacion: null, comentario: null })
+                      });
+                      if (!res.ok) {
+                        const json = await res.json();
+                        alert(json.error || 'Error al confirmar la compra');
+                        return;
+                      }
+                      const vistasKey = `intenciones_vistas_${userAuth?.id}`;
+                      const vistas = JSON.parse(localStorage.getItem(vistasKey) || '[]');
+                      vistas.push(intencionActual.id);
+                      localStorage.setItem(vistasKey, JSON.stringify(vistas));
+                      setNotifications(prev => prev.filter(n => n.id !== `intencion-${intencionActual.id}`));
+                      setMostrarCalificacion(false);
+                      setCalificacion(0);
+                      setComentario('');
+                      setMostrarModalConfirmacion(false);
+                      setIntencionActual(null);
+                      alert('¡Compra confirmada!');
+                      router.refresh();
+                    } catch (err) {
+                      console.error(err);
+                      alert('Error al confirmar');
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Omitir
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/intenciones/${intencionActual.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          accion: 'confirmar',
+                          calificacion: calificacion || null,
+                          comentario: comentario || null
+                        })
+                      });
+                      if (!res.ok) {
+                        const json = await res.json();
+                        alert(json.error || 'Error al confirmar la compra');
+                        return;
+                      }
+                      const vistasKey = `intenciones_vistas_${userAuth?.id}`;
+                      const vistas = JSON.parse(localStorage.getItem(vistasKey) || '[]');
+                      vistas.push(intencionActual.id);
+                      localStorage.setItem(vistasKey, JSON.stringify(vistas));
+                      setNotifications(prev => prev.filter(n => n.id !== `intencion-${intencionActual.id}`));
+                      setMostrarCalificacion(false);
+                      setCalificacion(0);
+                      setComentario('');
+                      setMostrarModalConfirmacion(false);
+                      setIntencionActual(null);
+                      alert('¡Compra confirmada y calificación guardada!');
+                      router.refresh();
+                    } catch (err) {
+                      console.error(err);
+                      alert('Error al confirmar');
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all"
+                >
+                  Enviar
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </motion.div>
+    </div>
+  ) : null;
+
   return (
+    <>
     <header className="h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center justify-between px-6 lg:px-10 sticky top-0 z-30">
       
       {/* Izquierda: Buscador o Título */}
@@ -139,7 +357,12 @@ export default function Header({
                       key={notif.id}
                       onClick={() => {
                         setShowNotifications(false);
-                        router.push(notif.link);
+                        if (notif.tipo === 'intencion_pendiente' && notif.payload) {
+                          setIntencionActual(notif.payload);
+                          setMostrarModalConfirmacion(true);
+                        } else {
+                          router.push(notif.link);
+                        }
                       }}
                       className="p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border-b border-slate-50 last:border-0"
                     >
@@ -192,5 +415,7 @@ export default function Header({
         </div>
       </div>
     </header>
+    {mounted && createPortal(modal, document.body)}
+    </>
   );
 }
