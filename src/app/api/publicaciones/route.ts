@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       .from('publicacion')
       .select(`
         *,
-        perfil:profiles(nombres, apellidos, programa_academico, telefono),
+        perfil:profiles!publicacion_id_usuario_fkey(nombres, apellidos, programa_academico, telefono),
         categorias(nombre)
       `)
       .order('destacada', { ascending: false })

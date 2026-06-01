@@ -47,7 +47,7 @@ export async function GET(request: Request) {
         .from('solicitudes')
         .select('id_solicitud, fecha, mensaje, perfiles:profiles!id_usuario(nombres, apellidos), tutoria!inner(id_usuario, titulo)')
         .eq('estado', 'pendiente');
-      
+
       if (!isAdmin) {
         query = query.eq('tutoria.id_usuario', user.id);
       }
@@ -70,6 +70,48 @@ export async function GET(request: Request) {
           });
         });
       }
+    }
+
+    // Buscar intenciones pendientes de confirmación (comprador)
+    const { data: intencionesPendientes, error: err3 } = await supabase
+      .from('intenciones_compra')
+      .select(`
+        *,
+        publicacion(id_publicacion, titulo, imagen, precio, id_usuario)
+      `)
+      .eq('id_comprador', user.id)
+      .eq('estado', 'marcado_vendedor')
+      .order('fecha_marcado_vendedor', { ascending: false });
+
+    if (err3) {
+      console.error("Error in GET /api/notificaciones [intenciones]:", err3);
+    }
+
+    if (!err3 && intencionesPendientes && intencionesPendientes.length > 0) {
+      const vendedorIds = [...new Set(intencionesPendientes.map((i: any) => i.publicacion?.id_usuario).filter(Boolean))];
+      const { data: vendedores } = await supabase
+        .from('profiles')
+        .select('id, nombres, apellidos')
+        .in('id', vendedorIds);
+
+      const vendedorMap = new Map(vendedores?.map((v: any) => [v.id, v]) || []);
+
+      intencionesPendientes.forEach((intencion: any) => {
+        const vendedor = vendedorMap.get(intencion.publicacion?.id_usuario);
+        notificaciones.push({
+          id: `intencion-${intencion.id}`,
+          tipo: 'intencion_pendiente',
+          titulo: '¡Confirmación de Compra!',
+          mensaje: `${vendedor?.nombres} ${vendedor?.apellidos} indica que te vendió: "${intencion.publicacion?.titulo}"`,
+          fecha: intencion.fecha_marcado_vendedor,
+          link: `/publicaciones/${intencion.publicacion?.id_publicacion}`,
+          payload: {
+            id: intencion.id,
+            vendedor: vendedor,
+            publicacion: intencion.publicacion
+          }
+        });
+      });
     }
 
     // Ordenar por fecha descendente

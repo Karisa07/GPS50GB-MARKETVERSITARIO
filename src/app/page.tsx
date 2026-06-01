@@ -45,6 +45,7 @@ export default function FeedMarketplace() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userAuth, setUserAuth] = useState<any>(null);
 
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false); // debounce indicator
   const [activePriceRange, setActivePriceRange] = useState(0);
@@ -61,7 +62,7 @@ export default function FeedMarketplace() {
     const fetchUserAndData = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user) {
         setUserAuth(user);
         const { data: profile } = await supabase
@@ -82,6 +83,8 @@ export default function FeedMarketplace() {
           router.push('/publicaciones');
           return;
         }
+
+
       }
 
       try {
@@ -90,7 +93,7 @@ export default function FeedMarketplace() {
           fetch('/api/categorias'),
           fetch('/api/tutorias')
         ]);
-        
+
         if (resPubs.ok) {
           const json = await resPubs.json();
           setProductos(json.data || []);
@@ -783,6 +786,7 @@ export default function FeedMarketplace() {
 
         </div>
       </main>
+
     </div>
   );
 }
